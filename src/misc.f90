@@ -4,10 +4,11 @@ module misc
 
 contains
 
-  subroutine mysub(t, y, dy)
+  subroutine mysub(N, t, y, dy)
+    integer, intent(in) :: N
     real(wp), intent(in)  :: t
-    real(wp), intent(in), dimension(2) :: y
-    real(wp), intent(out), dimension(2) :: dy
+    real(wp), intent(in), dimension(N) :: y
+    real(wp), intent(out), dimension(N) :: dy
 
     ! dy(1) = dcos(t)
     ! dy(2) = dsin(t)

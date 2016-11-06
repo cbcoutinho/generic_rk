@@ -4,66 +4,56 @@ module runge_kutta
 
 contains
 
-  subroutine rk(t, dt, y, dysub)
+  subroutine rk(n, t, dt, y, dysub)
     ! Dummy arguments
+    integer,  intent(in)                    :: n
     real(wp), intent(in)                    :: t, dt
-    real(wp), intent(inout),  dimension(2)  :: y
-    real(wp),                 dimension(2)  :: dy
+    real(wp), intent(inout),  dimension(n)  :: y
+    real(wp),                 dimension(n)  :: dy
 
     interface
-      subroutine dysub(t, y, dy)
+      subroutine dysub(n, t, y, dy)
         import wp
+        integer,  intent(in)                  :: n
         real(wp), intent(in)                  :: t
-        real(wp), intent(in),   dimension(2)  :: y
-        real(wp), intent(out),  dimension(2)  :: dy
+        real(wp), intent(in),   dimension(n)  :: y
+        real(wp), intent(out),  dimension(n)  :: dy
       end subroutine
     end interface
 
     ! Local arguments
-    integer                               :: ii, jj, n, m
+    integer                               :: ii, jj, m
     real(wp)                              :: dummy_t
-    real(wp), dimension(size(y))          :: dummy_y
+    real(wp), dimension(n)                :: dummy_y
     real(wp), dimension(:),   allocatable :: b, c
     real(wp), dimension(:,:), allocatable :: a, k
 
 
-    call classic_rk4(a, b, c)
+    call heun(a, b, c)
 
-    n = size(b)
-    m = size(y)
-    ! print *, c
-    ! print *, b
-    !
-    ! do ii = 1, n
-    !   print *, a(ii, :)
-    ! end do
+    m = size(b)
 
-    allocate(k(n, m))
+    allocate(k(m, n))
     k = 0._wp
 
-    call dysub(t, y, dy)
+    call dysub(n, t, y, dy)
     k(1, :) = dy
-
-    ! print *, t
-    ! print *, y
-    ! print *, dy
-    ! print *,
 
     dummy_y = y
 
-    do ii = 2, N
+    do ii = 2, n
 
       dummy_t = t + dt*c(ii)
       do jj = 1, ii-1
         dummy_y = dummy_y + dt*a(ii,jj)*k(jj,:)
       end do
 
-      call dysub(dummy_t, dummy_y, dy)
+      call dysub(n, dummy_t, dummy_y, dy)
       k(ii, :) = dy
 
     end do
 
-    y = y + [( dt*dot_product(b,k(:,jj)), jj = 1, m )]
+    y = y + [( dt*dot_product(b,k(:,jj)), jj = 1, n )]
 
     deallocate(a, b, c, k)
 
