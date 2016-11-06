@@ -18,10 +18,13 @@ FLIBS = -lblas -llapack
 .DEFAULT_GOAL := $(BIN)/main
 
 # Dependencies of main program
-objects=$(OBJ)/misc.o
+objects=$(OBJ)/misc.o \
+	$(OBJ)/runge_kutta.o
 
 # Modules
 $(OBJ)/misc.o: $(SRC)/misc.f90
+	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
+$(OBJ)/runge_kutta.o: $(SRC)/runge_kutta.f90
 	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
 
 # Main program
