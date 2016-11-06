@@ -4,13 +4,18 @@ module misc
 
 contains
 
-  elemental function myfun(t, y) result(dy)
-    real(wp), intent(in)  :: t, y
-    real(wp)              :: dy
+  subroutine mysub(t, y, dy)
+    real(wp), intent(in)  :: t
+    real(wp), intent(in), dimension(2) :: y
+    real(wp), intent(out), dimension(2) :: dy
 
-    dy = cos(t)
+    ! dy(1) = dcos(t)
+    ! dy(2) = dsin(t)
+
+    dy(1) = y(2)
+    dy(2) = -y(1)
 
     return
-  end function myfun
+  end subroutine mysub
 
 end module misc

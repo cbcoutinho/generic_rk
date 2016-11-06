@@ -1,0 +1,3 @@
+[submodule "src/fortranlib"]
+	path = src/fortranlib
+	url = https://github.com/cbcoutinho/fortranlib.git
