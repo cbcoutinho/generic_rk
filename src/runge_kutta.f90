@@ -4,40 +4,48 @@ module runge_kutta
 
 contains
 
-  ! subroutine rk_adaptive(n, t0, tend, dt, y, dysub)
-  !   ! Dummy arguments
-  !   integer,  intent(in)                    :: n
-  !   real(wp), intent(in)                    :: t, tend, tt
-  !   real(wp), intent(inout),  dimension(n)  :: y
-  !   real(wp),                 dimension(n)  :: dy
-  !
-  !   interface
-  !     subroutine dysub(n, t, y, dy)
-  !       import wp
-  !       integer,  intent(in)                  :: n
-  !       real(wp), intent(in)                  :: t
-  !       real(wp), intent(in),   dimension(n)  :: y
-  !       real(wp), intent(out),  dimension(n)  :: dy
-  !     end subroutine
-  !   end interface
-  !
-  !   ! Local arguments
-  !   integer                               :: ii, jj, m
-  !   real(wp), parameter                   :: eps1 = 1d-5, eps2 = 1d-10
-  !   real(wp)                              :: dummy_t
-  !   real(wp), dimension(n)                :: dummy_y
-  !   real(wp), dimension(:),   allocatable :: c
-  !   real(wp), dimension(:,:), allocatable :: b, a, k
-  !
-  !   call midpoint(a, b, c, m)
-  !
-  !   return
-  ! end subroutine rk_adaptive
-
-  subroutine rk_explicit(n, t, dt, y, dysub)
+  subroutine rk_wrapper(n, t0, tend, dt, y0, dysub)
     ! Dummy arguments
     integer,  intent(in)                    :: n
-    real(wp), intent(in)                    :: t, dt
+    real(wp), intent(in)                    :: t0, tend, dt
+    real(wp), intent(inout),  dimension(n)  :: y0
+    real(wp),                 dimension(n)  :: dy
+
+    interface
+      subroutine dysub(n, t, y, dy)
+        import wp
+        integer,  intent(in)                  :: n
+        real(wp), intent(in)                  :: t
+        real(wp), intent(in),   dimension(n)  :: y
+        real(wp), intent(out),  dimension(n)  :: dy
+      end subroutine
+    end interface
+
+    ! Local arguments
+    integer                               :: ii, jj, kk, m
+    real(wp), parameter                   :: eps1 = 1d-8 ! sqrt(epsilon(1._wp))
+    real(wp), parameter                   :: min_dt = 1d-10, max_dt = 1d-1
+    real(wp)                              :: t
+    real(wp), dimension(n)                :: y
+
+    y = y0
+    t = t0
+
+    do while ( t <= tend )
+      call rk_adaptive(n, t, dt, y, dysub)
+      ! print*, t, y
+      write(21, *) t, y
+      ! stop
+    end do
+
+    return
+  end subroutine rk_wrapper
+
+  subroutine rk_adaptive(n, t0, tend, y, dysub)
+    ! Dummy arguments
+    integer,  intent(in)                    :: n
+    real(wp), intent(in)                    :: tend
+    real(wp), intent(inout)                 :: t0
     real(wp), intent(inout),  dimension(n)  :: y
     real(wp),                 dimension(n)  :: dy
 
@@ -52,24 +60,106 @@ contains
     end interface
 
     ! Local arguments
-    integer                               :: ii, jj, m
-    real(wp)                              :: dummy_t
-    real(wp), dimension(n)                :: dummy_y
-    real(wp), dimension(:),   allocatable :: b, c
-    real(wp), dimension(:,:), allocatable :: a, k
+    integer                               :: ii, jj, kk, m
+    real(wp), parameter                   :: eps1 = 1d-8 ! sqrt(epsilon(1._wp))
+    real(wp), parameter                   :: min_dt = 1d-10, max_dt = 1d-1
+    real(wp)                              :: t, dt, error
+    real(wp), dimension(n)                :: dummy_y, y_star
+    real(wp), dimension(:),   allocatable :: c, dummy_b
+    real(wp), dimension(:,:), allocatable :: b, a, k
+    logical                               :: switch
 
+    dt  = tend / 10._wp
+    ! dt  = (tend-t0) / 10._wp
+    dt  = minval([dt, max_dt])
+    t   = t0
+    switch = .true.
+    kk = 1
 
-    call midpoint(a, b, c, m)
+    call dormand_prince_rk45(a, b, c, m)
+    allocate(dummy_b(m))
 
-    allocate(k(m, n))
+    ! Begin loop to solve for y until end of timestep (tend)
+    do while ( t <= tend + t0 )
+
+      ! Begin loop to reach convergence from a specified point in time
+      error = 1._wp
+      do while ( error >= eps1 )
+
+        ! I`m recalculating k(m,n) in each of these rk calls. Maybe that's a
+        ! performance issue
+        dummy_y = y
+        y_star  = y
+        dummy_b = b(1,:)
+        call rk_explicit(n, t, dt, dummy_y, dysub, a, dummy_b, c, m)
+        dummy_b = b(2,:)
+        call rk_explicit(n, t, dt, y_star, dysub, a, dummy_b, c, m)
+
+        error = maxval(abs(dummy_y - y_star))
+
+        dt = dt * 0.75_wp
+      end do
+
+      y = dummy_y
+      ! print 120, t, dt, tend, y
+
+      if ( t + dt >= tend + t0) then
+        if ( switch ) then
+          dt = tend+t0 - t
+          t = t + dt
+          switch = .false.
+        else
+          exit
+        end if
+      else
+        t = t + dt
+        ! dt = init_dt
+        dt = dt * 2._wp
+        dt = minval([dt, max_dt])
+      end if
+
+      ! print 120, t, dt, tend, y
+      kk = kk+1
+
+    end do
+
+    t0 = t
+    ! print*, kk
+    deallocate(a, b, c, dummy_b)
+    120 format (1x,5(e15.7))
+
+    return
+  end subroutine rk_adaptive
+
+  subroutine rk_explicit(n, t, dt, y, dysub, a, b, c, m)
+    ! Dummy arguments
+    integer,  intent(in)                      :: n, m
+    real(wp), intent(in)                      :: t, dt
+    real(wp), intent(inout),  dimension(n)    :: y
+    real(wp), intent(in),     dimension(m)    :: b, c
+    real(wp), intent(in),     dimension(m,m)  :: a
+
+    interface
+      subroutine dysub(n, t, y, dy)
+        import wp
+        integer,  intent(in)                  :: n
+        real(wp), intent(in)                  :: t
+        real(wp), intent(in),   dimension(n)  :: y
+        real(wp), intent(out),  dimension(n)  :: dy
+      end subroutine
+    end interface
+
+    ! Local arguments
+    integer                   :: ii, jj
+    real(wp)                  :: dummy_t
+    real(wp), dimension(n)    :: dummy_y
+    real(wp), dimension(m,n)  :: k
+    real(wp), dimension(n)    :: dy
+
     k = 0._wp
-
-    call dysub(n, t, y, dy)
-    k(1, :) = dy
-
     dummy_y = y
 
-    do ii = 2, n
+    do ii = 1, m
 
       dummy_t = t + dt*c(ii)
       do jj = 1, ii-1
@@ -82,8 +172,6 @@ contains
     end do
 
     y = y + [( dt*dot_product(b,k(:,jj)), jj = 1, n )]
-
-    deallocate(a, b, c, k)
 
     return
   end subroutine rk_explicit
@@ -192,16 +280,21 @@ contains
     real(wp), intent(out), dimension(:),    allocatable :: c
     real(wp), intent(out), dimension(:,:),  allocatable :: a, b
 
+    real(wp),              dimension(:),    allocatable :: dummy_b
+
     m = 2
-    allocate(a(m,m), b(2,m), c(m))
+    allocate(a(m,m), b(2,m), c(m), dummy_b(m))
 
     ! There is already a routine to calculate the heun coefficients - just
     ! reuse it for the first row of `b`
 
     alpha = 1._wp
-    call two_stage(a, b(1,:), c, m, alpha)
+    call two_stage(a, dummy_b, c, m, alpha)
 
+    b(1,:) = dummy_b
     b(2,:) = [1._wp, 0._wp]
+
+    deallocate(dummy_b)
 
     return
   end subroutine heun_euler

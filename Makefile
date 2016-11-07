@@ -10,7 +10,7 @@ FORTRANLIB_SRC=$(current_dir)/src/fortranlib/src
 FF = gfortran
 FFLAGS = -Wall -std=f2008 -Wextra -fPIC -fmax-errors=1 -Wimplicit-interface
 # Debug flags:
-FFLAGS += -O0 -g -fcheck=all -fbacktrace #-ffpe-trap=zero,overflow,underflow
+FFLAGS += -g -fcheck=all -fbacktrace #-ffpe-trap=zero,overflow,underflow
 # Release flags:
 # FFLAGS += -O3 -march=native -ffast-math -funroll-loops
 
@@ -31,7 +31,7 @@ $(OBJ)/lib_constants.o: $(FORTRANLIB_SRC)/lib_constants.f90
 	$(FF) -J$(OBJ) -c -o $@ $<
 
 # Modules
-$(OBJ)/misc.o: $(SRC)/misc.f90
+$(OBJ)/misc.o: $(SRC)/misc.f90 $(OBJ)/lib_constants.o
 	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
 $(OBJ)/runge_kutta.o: $(SRC)/runge_kutta.f90
 	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
@@ -48,7 +48,7 @@ clean:
 run: $(BIN)/main
 	$(BIN)/main
 
-plot: $(BIN)/main run
+plot: clean $(BIN)/main run
 	python plotter.py
 
 debug: clean $(BIN)/main
