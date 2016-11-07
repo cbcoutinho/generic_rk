@@ -20,7 +20,7 @@ program main
   if ( ios /= 0 ) stop "Error opening file 21"
 
   t0 = 0.0_wp
-  dt = 0.001_wp
+  dt = 0.1_wp
   ! tend = 10_wp*pi
   tend = 100._wp
   y0 = [0.1_wp, 0.0_wp, 0.0_wp]
