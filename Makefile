@@ -48,5 +48,8 @@ clean:
 run: $(BIN)/main
 	$(BIN)/main
 
+plot: $(BIN)/main run
+	python plotter.py
+
 debug: clean $(BIN)/main
 	/usr/bin/valgrind --track-origins=yes --leak-check=full $(BIN)/main
