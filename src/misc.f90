@@ -14,7 +14,8 @@ contains
     ! call simple_trig(n, t, y, dy)
     ! call simple_ode(n, t, y, dy)
     ! call vanderpol(n, t, y, dy)
-    call lorenz(n, t, y, dy)
+    ! call lorenz(n, t, y, dy)
+    call brusselator(n, t, y, dy)
 
 
     return
@@ -40,6 +41,7 @@ contains
 
     dy(1) = y(2)
     dy(2) = -y(1)
+    dy(3) = -y(2)
 
     return
   end subroutine simple_ode
@@ -50,12 +52,12 @@ contains
     real(wp), intent(in), dimension(n)  :: y
     real(wp), intent(out), dimension(n) :: dy
 
-    real(wp), parameter                 :: mu = 50.53_wp
+    real(wp), parameter                 :: mu = 30.53_wp
     real(wp), parameter                 :: A = 3.2_wp
     real(wp), parameter                 :: omega = 2._wp*pi/10_wp
 
     dy(1) = y(2)
-    dy(2) = mu * (1-y(1)*y(1)) * y(2) - y(1) + A*dsin(t*omega)
+    dy(2) = mu * (1._wp-y(1)*y(1)) * y(2) - y(1) + A*dsin(t*omega)
 
     return
   end subroutine vanderpol
@@ -76,5 +78,17 @@ contains
 
     return
   end subroutine lorenz
+
+  subroutine brusselator(n, t, y, dy)
+    integer, intent(in)                 :: n
+    real(wp), intent(in)                :: t
+    real(wp), intent(in), dimension(n)  :: y
+    real(wp), intent(out), dimension(n) :: dy
+
+    dy(1) = 1._wp + y(1)*y(1)*y(2) - 4._wp*y(1)
+    dy(2) = 3._wp*y(1) - y(1)*y(1)*y(2)
+
+    return
+  end subroutine brusselator
 
 end module misc

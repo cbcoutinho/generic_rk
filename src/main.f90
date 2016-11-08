@@ -6,47 +6,44 @@ program main
   use lib_constants, only: pi => pi_dp
   implicit none
 
-  integer                 :: ii, ios
+  integer                       :: ii, ios
+  integer, parameter            :: n = 2, num_t = 100
+  real(wp)                      :: t0, tend
+  real(wp), dimension(num_t)    :: t
+  real(wp), dimension(n)        :: y0
+  real(wp), dimension(num_t,n)  :: y
 
-  integer, parameter      :: n = 3
-  real(wp)                :: t0, tend, dt
-  ! real(wp), dimension(num_t)    :: t
-  real(wp), dimension(n)  :: y0
-  ! real(wp), dimension(num_t,n)  :: y
+  ! Set time vector `t`
+  t0   = 0.0_wp
+  ! tend    = 4_wp*pi
+  tend = 20._wp
+  call linspace(t0, tend, t)
 
+  ! Set y vector `y` using y0
+  ! y0 = [0._wp, 1._wp]
+  y0 = [1.5_wp, 3._wp]
+  ! y0 = [0.1_wp, 0.0_wp, 0.0_wp]
+  ! y0      = [0._wp, 1._wp, 0._wp]
+  y(1,:)  = y0
+
+  call rk_wrapper(n, num_t, t, y, mysub)
 
 
   open(unit=21, file='data.out', iostat=ios, status="replace", action="write")
   if ( ios /= 0 ) stop "Error opening file 21"
 
-  t0 = 0.0_wp
-  dt = 0.1_wp
-  ! tend = 10_wp*pi
-  tend = 100._wp
-  y0 = [0.1_wp, 0.0_wp, 0.0_wp]
+  open(unit=22, file='raw.out', iostat=ios, status="replace", action="write")
+  if ( ios /= 0 ) stop "Error opening file 22"
 
-  ! call linspace(t0, tend, t)
-  ! dt = t(2) - t(1)
-  ! do ii = 1, num_t-1
-  !   y0 = y(ii, :)
-  !   call rk_explicit(n, t(ii), dt, y0, mysub)
-  !   y(ii+1, :) = y0
-  ! end do
-  ! do ii = 1, num_t
-  !   write(21,*) t(ii), y(ii, :)
-  ! end do
-
-  write(21,*) t0, y0
-
-  call rk_wrapper(n, t0, tend, dt, y0, mysub)
-
-
-
-
-
+  do ii = 1, num_t
+      write(21,*) t(ii), y(ii, :)
+  end do
 
   close(unit=21, iostat=ios)
   if ( ios /= 0 ) stop "Error closing file unit 21"
+
+  close(unit=22, iostat=ios, status="delete")
+  if ( ios /= 0 ) stop "Error closing file unit 22"
 
 
 

@@ -21,6 +21,7 @@ FLIBS = -lblas -llapack
 # Dependencies of main program
 objects=$(OBJ)/misc.o \
 	$(OBJ)/runge_kutta.o \
+	$(OBJ)/rk_constants.o \
 	$(OBJ)/lib_array.o \
 	$(OBJ)/lib_constants.o
 
@@ -33,7 +34,9 @@ $(OBJ)/lib_constants.o: $(FORTRANLIB_SRC)/lib_constants.f90
 # Modules
 $(OBJ)/misc.o: $(SRC)/misc.f90 $(OBJ)/lib_constants.o
 	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
-$(OBJ)/runge_kutta.o: $(SRC)/runge_kutta.f90
+$(OBJ)/runge_kutta.o: $(SRC)/runge_kutta.f90 $(OBJ)/rk_constants.o
+	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
+$(OBJ)/rk_constants.o: $(SRC)/rk_constants.f90
 	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
 
 # Main program

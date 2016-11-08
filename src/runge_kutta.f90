@@ -1,53 +1,70 @@
 module runge_kutta
   use iso_fortran_env, only: wp => real64
+  use rk_constants, only: classic_rk4, three_eighths_rk4
+  use rk_constants, only: midpoint, heun, ralston
+  use rk_constants, only: heun_euler, fehlbery_rk12, bogacki_shampine
+  use rk_constants, only: fehlbery_rk45, cash_karp_rk45, dormand_prince_rk45
   implicit none
 
 contains
 
-  subroutine rk_wrapper(n, t0, tend, dt, y0, dysub)
+  subroutine rk_wrapper(n, num_t, t, y, dysub)
     ! Dummy arguments
-    integer,  intent(in)                    :: n
-    real(wp), intent(in)                    :: t0, tend, dt
-    real(wp), intent(inout),  dimension(n)  :: y0
-    real(wp),                 dimension(n)  :: dy
+    integer,  intent(in)                          :: n, num_t
+    real(wp), intent(inout),  dimension(num_t)    :: t
+    real(wp),                 dimension(num_t, n) :: y
 
     interface
       subroutine dysub(n, t, y, dy)
         import wp
-        integer,  intent(in)                  :: n
-        real(wp), intent(in)                  :: t
-        real(wp), intent(in),   dimension(n)  :: y
-        real(wp), intent(out),  dimension(n)  :: dy
+        integer,  intent(in)                      :: n
+        real(wp), intent(in)                      :: t
+        real(wp), intent(in),   dimension(n)      :: y
+        real(wp), intent(out),  dimension(n)      :: dy
       end subroutine
     end interface
 
     ! Local arguments
-    integer                               :: ii, jj, kk, m
-    real(wp), parameter                   :: eps1 = 1d-8 ! sqrt(epsilon(1._wp))
-    real(wp), parameter                   :: min_dt = 1d-10, max_dt = 1d-1
-    real(wp)                              :: t
-    real(wp), dimension(n)                :: y
+    integer                                       :: ii, m, p
+    real(wp)                                      :: dt
+    real(wp), dimension(2)                        :: tspan
+    real(wp), dimension(n)                        :: yy
+    real(wp), dimension(:),   allocatable         :: c, b, bstar
+    real(wp), dimension(:,:), allocatable         :: a
 
-    y = y0
-    t = t0
+    ! Get the tableau coefficients associated with a runge kutta implementation
+    call dormand_prince_rk45(a, b, bstar, c, m, p)
+    ! call heun(a, b, c, m, p)
 
-    do while ( t <= tend )
-      call rk_adaptive(n, t, dt, y, dysub)
-      ! print*, t, y
-      write(21, *) t, y
-      ! stop
+    ! Initial guess for dt is just the difference between t(1:2), this way new
+    ! versions of dt will be saved in each call to rk_adaptive
+    dt = t(2) - t(1)
+
+    do ii = 1, num_t-1
+      yy = y(ii,:)
+      tspan = t(ii:ii+1)
+
+      call rk_adaptive(n, tspan, dt, yy, dysub, a, b, bstar, c, m, p)
+      ! call rk_explicit(n, t(ii), t(ii+1)-t(ii), yy, dysub, a, b, c, m, p)
+
+      y(ii+1, :) = yy
+
+      ! if (ii == 1) stop
     end do
+
+    deallocate(a, b, bstar, c)
 
     return
   end subroutine rk_wrapper
 
-  subroutine rk_adaptive(n, t0, tend, y, dysub)
+  subroutine rk_adaptive(n, tspan, dt, y, dysub, a, b, bstar, c, m, p)
     ! Dummy arguments
-    integer,  intent(in)                    :: n
-    real(wp), intent(in)                    :: tend
-    real(wp), intent(inout)                 :: t0
-    real(wp), intent(inout),  dimension(n)  :: y
-    real(wp),                 dimension(n)  :: dy
+    integer,  intent(in)                      :: n, m, p
+    real(wp), intent(inout)                   :: dt
+    real(wp), intent(in),     dimension(2)    :: tspan
+    real(wp), intent(inout),  dimension(n)    :: y
+    real(wp), intent(in),     dimension(m)    :: c, b, bstar
+    real(wp), intent(in),     dimension(m,m)  :: a
 
     interface
       subroutine dysub(n, t, y, dy)
@@ -60,73 +77,103 @@ contains
     end interface
 
     ! Local arguments
-    integer                               :: ii, jj, kk, m
-    real(wp), parameter                   :: eps1 = 1d-8 ! sqrt(epsilon(1._wp))
-    real(wp), parameter                   :: min_dt = 1d-10, max_dt = 1d-1
-    real(wp)                              :: t, dt, error
+    integer                               :: ii, jj, kk
+    real(wp)                              :: t, error
+    real(wp), parameter                   :: eps1 = sqrt(epsilon(1._wp))
     real(wp), dimension(n)                :: dummy_y, y_star
-    real(wp), dimension(:),   allocatable :: c, dummy_b
-    real(wp), dimension(:,:), allocatable :: b, a, k
-    logical                               :: switch
 
-    dt  = tend / 10._wp
-    ! dt  = (tend-t0) / 10._wp
-    dt  = minval([dt, max_dt])
-    t   = t0
-    switch = .true.
-    kk = 1
+    integer                               :: eval, num_dt
+    integer, parameter                    :: max_eval = 100
+    real(wp)                              :: s, new_s
+    logical                               :: last
 
-    call dormand_prince_rk45(a, b, c, m)
-    allocate(dummy_b(m))
+    num_dt = 1
+    t = tspan(1)
+    last = .false.
 
     ! Begin loop to solve for y until end of timestep (tend)
-    do while ( t <= tend + t0 )
+    do while ( t <= tspan(2) )
 
       ! Begin loop to reach convergence from a specified point in time
-      error = 1._wp
-      do while ( error >= eps1 )
-
-        ! I`m recalculating k(m,n) in each of these rk calls. Maybe that's a
+      do eval = 1, max_eval
+        ! print*, 'eval     = ', eval
+        ! print*, 'time     = ', t
+        ! print*, 'y        = ', y
+        ! print*, 'dt       = ', dt
+        ! k(m,n) is recalculated in each of these rk loops. Maybe that's a
         ! performance issue
         dummy_y = y
         y_star  = y
-        dummy_b = b(1,:)
-        call rk_explicit(n, t, dt, dummy_y, dysub, a, dummy_b, c, m)
-        dummy_b = b(2,:)
-        call rk_explicit(n, t, dt, y_star, dysub, a, dummy_b, c, m)
+        call rk_explicit(n, t, dt, dummy_y, dysub, a, b,      c, m)
+        call rk_explicit(n, t, dt, y_star,  dysub, a, bstar,  c, m)
 
-        error = maxval(abs(dummy_y - y_star))
+        ! print*, 'dummy_y  = ', dummy_y
+        ! print*, 'y_star   = ', y_star
 
-        dt = dt * 0.75_wp
+        ! error = maxval(abs(dummy_y - y_star))
+        error = norm2(dummy_y - y_star)
+
+        s = eps1*dt / &
+            & (2._wp * (tspan(2) - tspan(1)) * error)
+        ! print*, 'error    = ', error
+        ! print*, 's        = ', s
+        ! print*, 'sqrt(s)  = ', sqrt(s)
+        ! print*,
+
+        new_s = 0.9_wp * (eps1/error) ** (1._wp/real(p, wp))
+        ! print*, 'new_s    = ', new_s
+        ! stop
+
+        ! Adjust dt based on estimation of error
+        if ( new_s >= 2._wp ) then
+          t = t + dt
+          y = y_star
+          dt = dt * 2._wp
+          ! print*, 'Adjusted dt with factor of 2'
+          exit
+        else if ( new_s < 2._wp .and. new_s >= 1._wp ) then
+          t = t + dt
+          y = y_star
+          ! dt = dt * s
+          ! print 121, 'Adjusted dt with factor of ', s
+          ! dt = dt * new_s
+          ! print 121, 'Adjusted dt with factor of ', new_s
+          exit
+        else if ( new_s <= 1._wp ) then
+          ! dt = dt * s
+          ! print 121, 'Adjusted dt with factor of ', s
+          dt = dt * new_s
+          ! print 121, 'Adjusted dt with factor of ', new_s
+        end if
+
+        if ( eval == max_eval ) then
+          print*, "Warning, max eval iterations reached!"
+        end if
+
       end do
 
-      y = dummy_y
-      ! print 120, t, dt, tend, y
+      ! num_dt = num_dt + 1
+      ! print 120, t, tspan, dt, y
 
-      if ( t + dt >= tend + t0) then
-        if ( switch ) then
-          dt = tend+t0 - t
-          t = t + dt
-          switch = .false.
-        else
-          exit
-        end if
-      else
-        t = t + dt
-        ! dt = init_dt
-        dt = dt * 2._wp
-        dt = minval([dt, max_dt])
+      ! Make sure t does not overshoot tspan(2) (i.e. end of timestep)
+      if ( last ) then
+        exit
       end if
 
-      ! print 120, t, dt, tend, y
-      kk = kk+1
+      if ( t + dt > tspan(2) ) then
+        dt = tspan(2) - t
+        last = .true.
+      end if
 
     end do
 
-    t0 = t
-    ! print*, kk
-    deallocate(a, b, c, dummy_b)
-    120 format (1x,5(e15.7))
+    ! print*, num_dt
+    ! print 120, t, tspan, dt, y
+    ! stop
+
+    ! deallocate(a, b, bstar, c)
+    120 format (1x,6(e14.6))
+    121 format (a, e14.6)
 
     return
   end subroutine rk_adaptive
@@ -175,248 +222,5 @@ contains
 
     return
   end subroutine rk_explicit
-
-  subroutine classic_rk4(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp), intent(out), dimension(:),    allocatable :: c, b
-    real(wp), intent(out), dimension(:,:),  allocatable :: a
-
-    m = 4
-    allocate(a(m,m), b(m), c(m))
-
-    c = [0._wp, 0.5_wp, 0.5_wp, 1._wp]
-    b = [1._wp/6._wp, 1._wp/3._wp, 1._wp/3._wp, 1._wp/6._wp ]
-
-    a = 0._wp
-    a(2,1) = 0.5_wp
-    a(3,2) = 0.5_wp
-    a(4,3) = 1._wp
-
-    return
-  end subroutine classic_rk4
-
-  subroutine three_eighths_rk4(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp), intent(out), dimension(:),    allocatable :: c, b
-    real(wp), intent(out), dimension(:,:),  allocatable :: a
-
-    m = 4
-    allocate(a(m,m), b(m), c(m))
-
-    c = [0._wp, 1._wp/3._wp, 2._wp/6._wp, 1._wp]
-    b = [1._wp/8._wp, 3._wp/8._wp, 3._wp/8._wp, 1._wp/8._wp ]
-
-    a = 0._wp
-    a(2,1) = 0.5_wp
-    a(3,1:2) = [-1._wp/3._wp, 1._wp]
-    a(4,1:3) = [1._wp, -1._wp, 1._wp]
-
-    return
-  end subroutine three_eighths_rk4
-
-  subroutine midpoint(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp)                                            :: alpha
-    real(wp), intent(out), dimension(:),    allocatable :: c, b
-    real(wp), intent(out), dimension(:,:),  allocatable :: a
-
-    m = 2
-    allocate(a(m,m), b(m), c(m))
-
-    alpha = 0.5_wp
-    call two_stage(a, b, c, m, alpha)
-
-    return
-  end subroutine midpoint
-
-  subroutine heun(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp)                                            :: alpha
-    real(wp), intent(out), dimension(:),    allocatable :: c, b
-    real(wp), intent(out), dimension(:,:),  allocatable :: a
-
-    m = 2
-    allocate(a(m,m), b(m), c(m))
-
-    alpha = 1._wp
-    call two_stage(a, b, c, m, alpha)
-
-    return
-  end subroutine heun
-
-  subroutine ralston(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp)                                            :: alpha
-    real(wp), intent(out), dimension(:),    allocatable :: c, b
-    real(wp), intent(out), dimension(:,:),  allocatable :: a
-
-    m = 2
-    allocate(a(m,m), b(m), c(m))
-
-    alpha = 2._wp/3._wp
-    call two_stage(a, b, c, m, alpha)
-
-    return
-  end subroutine ralston
-
-  subroutine two_stage(a, b, c, m, alpha)
-    integer,  intent(in)                  :: m
-    real(wp), intent(in)                  :: alpha
-    real(wp), intent(out), dimension(m)   :: c, b
-    real(wp), intent(out), dimension(m,m) :: a
-
-    c = [0._wp, alpha]
-    b = [(1._wp - (1._wp/(2._wp*alpha))), (1._wp/(2._wp*alpha))]
-
-    a = 0._wp
-    a(2,1) = alpha
-
-    return
-  end subroutine two_stage
-
-  subroutine heun_euler(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp)                                            :: alpha
-    real(wp), intent(out), dimension(:),    allocatable :: c
-    real(wp), intent(out), dimension(:,:),  allocatable :: a, b
-
-    real(wp),              dimension(:),    allocatable :: dummy_b
-
-    m = 2
-    allocate(a(m,m), b(2,m), c(m), dummy_b(m))
-
-    ! There is already a routine to calculate the heun coefficients - just
-    ! reuse it for the first row of `b`
-
-    alpha = 1._wp
-    call two_stage(a, dummy_b, c, m, alpha)
-
-    b(1,:) = dummy_b
-    b(2,:) = [1._wp, 0._wp]
-
-    deallocate(dummy_b)
-
-    return
-  end subroutine heun_euler
-
-  subroutine fehlbery_rk12(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp), intent(out), dimension(:),    allocatable :: c
-    real(wp), intent(out), dimension(:,:),  allocatable :: a, b
-
-    m = 3
-    allocate(a(m,m), b(2,m), c(m))
-
-    c       = [0._wp, 0.5_wp, 1.0_wp]
-    b(1,:)  = [1._wp/256._wp, 255._wp/256._wp, 0._wp]
-    b(2,:)  = [1._wp/512._wp, 255._wp/256._wp, 1._wp/512._wp]
-
-    a       = 0._wp
-    a(2,1)  = 0.5_wp
-    a(3,:)  = [1._wp/256._wp, 255._wp/256._wp, 0._wp]
-
-    return
-  end subroutine fehlbery_rk12
-
-  subroutine bogacki_shampine(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp), intent(out), dimension(:),    allocatable :: c
-    real(wp), intent(out), dimension(:,:),  allocatable :: a, b
-
-    m = 4
-    allocate(a(m,m), b(2,m), c(m))
-
-    c         = [0._wp, 0.5_wp, 0.75_wp, 1.0_wp]
-    b(1,:)    = [2._wp/9._wp, 1._wp/3._wp, 4._wp/9._wp, 0._wp]
-    b(2,:)    = [7._wp/24._wp, 1._wp/4._wp, 1._wp/3._wp, 1._wp/8._wp]
-
-    a         = 0._wp
-    a(2,1)    = 0.5_wp
-    a(3,2)    = 0.75_wp
-    a(4,1:3)  = [2._wp/9._wp, 1._wp/3._wp, 4._wp/9._wp]
-
-    return
-  end subroutine bogacki_shampine
-
-  subroutine fehlbery_rk45(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp), intent(out), dimension(:),    allocatable :: c
-    real(wp), intent(out), dimension(:,:),  allocatable :: a, b
-
-    m = 6
-    allocate(a(m,m), b(2,m), c(m))
-
-    c         = [0._wp, 0.25_wp, 3._wp/8._wp, 12._wp/13._wp, 1._wp, 0.5_wp]
-    b(1,:)    = [16._wp/135._wp, 0._wp, 6656._wp/12825._wp, &
-                  & 28561._wp/56430._wp, -9._wp/50._wp, 2._wp/55._wp]
-    b(2,:)    = [25._wp/216._wp, 0._wp, 1408._wp/2565._wp, 2197._wp/4104._wp, &
-                  & -1._wp/5._wp, 0._wp]
-
-    a         = 0._wp
-    a(2,1)    = 1._wp/4._wp
-    a(3, 1:2) = [3._wp/32._wp, 9._wp/32._wp]
-    a(4, 1:3) = [1932._wp/2197._wp, -7200._wp/2197._wp, 7296._wp/2197._wp]
-    a(5, 1:4) = [439._wp/216._wp, -8._wp, 3680._wp/513._wp, -845._wp/4104._wp]
-    a(6, 1:5) = [-8._wp/27._wp, 2._wp, -3544._wp/2565._wp, 1859._wp/4104._wp, &
-                  & -11._wp/40._wp]
-
-    return
-  end subroutine fehlbery_rk45
-
-  subroutine cash_karp_rk45(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp), intent(out), dimension(:),    allocatable :: c
-    real(wp), intent(out), dimension(:,:),  allocatable :: a, b
-
-    m = 6
-    allocate(a(m,m), b(2,m), c(m))
-
-    c         = [0._wp, 1._wp/5._wp, 3._wp/10._wp, 3._wp/5._wp, 1._wp, &
-                  & 7._wp/8._wp]
-    b(1,:)    = [37._wp/378._wp, 0._wp, 250._wp/621._wp, 125._wp/594._wp, &
-                  & 0._wp, 512._wp/1771._wp]
-    b(2,:)    = [2825._wp/27648._wp, 0._wp, 18575._wp/48384._wp, &
-                  & 13525._wp/55296._wp, 277._wp/14336._wp, 1._wp/4._wp]
-
-    a         = 0._wp
-    a(2,1)    = 1._wp/5._wp
-    a(3, 1:2) = [3._wp/40._wp, 9._wp/40._wp]
-    a(4, 1:3) = [3._wp/10._wp, -9._wp/10._wp, 6._wp/5._wp]
-    a(5, 1:4) = [-11._wp/54._wp, 5._wp/2._wp, -70._wp/27._wp, 35._wp/27._wp]
-    a(6, 1:5) = [1631._wp/55296._wp, 175._wp/512._wp, 575._wp/13824._wp, &
-                  & 44275._wp/110592._wp, 253._wp/4096._wp]
-
-    return
-  end subroutine cash_karp_rk45
-
-  subroutine dormand_prince_rk45(a, b, c, m)
-    integer,  intent(out)                               :: m
-    real(wp), intent(out), dimension(:),    allocatable :: c
-    real(wp), intent(out), dimension(:,:),  allocatable :: a, b
-
-    m = 7
-    allocate(a(m,m), b(2,m), c(m))
-
-    c         = [0._wp, 1._wp/5._wp, 3._wp/10._wp, 4._wp/5._wp, 8._wp/9._wp, &
-                  & 1._wp, 1._wp]
-    b(1,:)    = [35._wp/384._wp, 0._wp, 500._wp/1113._wp, 125._wp/192._wp, &
-                  & -2187._wp/6784._wp, 11._wp/84._wp, 0._wp]
-    b(2,:)    = [5179._wp/57600._wp, 0._wp, 7571._wp/16695._wp, &
-                  & 393._wp/640._wp, -92097._wp/339200._wp, 187._wp/2100._wp, &
-                  & 1._wp/40._wp]
-
-    a         = 0._wp
-    a(2,1)    = 1._wp/5._wp
-    a(3, 1:2) = [3._wp/40._wp, 9._wp/40._wp]
-    a(4, 1:3) = [44._wp/45._wp, -56._wp/15._wp, 32._wp/9._wp]
-    a(5, 1:4) = [19372._wp/6561._wp, -25360._wp/2187._wp, 64448._wp/6561._wp, &
-                  & -212._wp/729._wp]
-    a(6, 1:5) = [9017._wp/3168._wp, -355._wp/33._wp, 46732._wp/5247._wp, &
-                  & 49._wp/176._wp, -5103._wp/18656._wp]
-    a(7, 1:6) = [35._wp/384._wp, 0._wp, 500._wp/1113._wp, 125._wp/192._wp, &
-                  & -2187._wp/6784._wp, 11._wp/84._wp]
-
-    return
-  end subroutine dormand_prince_rk45
 
 end module runge_kutta
