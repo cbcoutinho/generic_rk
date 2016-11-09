@@ -6,19 +6,19 @@ module rk_constants
   public :: midpoint, heun, ralston
   public :: heun_euler, fehlbery_rk12, bogacki_shampine
   public :: fehlbery_rk45, cash_karp_rk45, dormand_prince_rk45
+  public :: fehlbery_rk78
 
   private :: two_stage
 
 
 contains
 
-  subroutine midpoint(a, b, c, m, p)
-    integer,  intent(out)                               :: m, p
+  subroutine midpoint(a, b, c, m)
+    integer,  intent(out)                               :: m
     real(wp)                                            :: alpha
     real(wp), intent(out), dimension(:),    allocatable :: c, b
     real(wp), intent(out), dimension(:,:),  allocatable :: a
 
-    p = 2
     m = 2
     allocate(a(m,m), b(m), c(m))
 
@@ -28,13 +28,12 @@ contains
     return
   end subroutine midpoint
 
-  subroutine heun(a, b, c, m, p)
-    integer,  intent(out)                               :: m, p
+  subroutine heun(a, b, c, m)
+    integer,  intent(out)                               :: m
     real(wp)                                            :: alpha
     real(wp), intent(out), dimension(:),    allocatable :: c, b
     real(wp), intent(out), dimension(:,:),  allocatable :: a
 
-    p = 2
     m = 2
     allocate(a(m,m), b(m), c(m))
 
@@ -44,13 +43,12 @@ contains
     return
   end subroutine heun
 
-  subroutine ralston(a, b, c, m, p)
-    integer,  intent(out)                               :: m, p
+  subroutine ralston(a, b, c, m)
+    integer,  intent(out)                               :: m
     real(wp)                                            :: alpha
     real(wp), intent(out), dimension(:),    allocatable :: c, b
     real(wp), intent(out), dimension(:,:),  allocatable :: a
 
-    p = 2
     m = 2
     allocate(a(m,m), b(m), c(m))
 
@@ -77,12 +75,11 @@ contains
 
 
 
-  subroutine classic_rk4(a, b, c, m, p)
-    integer,  intent(out)                               :: m, p
+  subroutine classic_rk4(a, b, c, m)
+    integer,  intent(out)                               :: m
     real(wp), intent(out), dimension(:),    allocatable :: c, b
     real(wp), intent(out), dimension(:,:),  allocatable :: a
 
-    p = 4
     m = 4
     allocate(a(m,m), b(m), c(m))
 
@@ -97,12 +94,11 @@ contains
     return
   end subroutine classic_rk4
 
-  subroutine three_eighths_rk4(a, b, c, m, p)
-    integer,  intent(out)                               :: m, p
+  subroutine three_eighths_rk4(a, b, c, m)
+    integer,  intent(out)                               :: m
     real(wp), intent(out), dimension(:),    allocatable :: c, b
     real(wp), intent(out), dimension(:,:),  allocatable :: a
 
-    p = 4
     m = 4
     allocate(a(m,m), b(m), c(m))
 
@@ -131,7 +127,7 @@ contains
     ! There is already a routine to calculate the heun coefficients - just
     ! reuse it for the first row of `b`, then set bstar
 
-    call heun(a, b, c, m, p)
+    call heun(a, b, c, m)
     bstar = [1._wp, 0._wp]
 
     return
@@ -261,5 +257,52 @@ contains
 
     return
   end subroutine dormand_prince_rk45
+
+  subroutine fehlbery_rk78(a, b, bstar, c, m, p)
+    integer,  intent(out)                               :: m, p
+    real(wp), intent(out), dimension(:),    allocatable :: c, b, bstar
+    real(wp), intent(out), dimension(:,:),  allocatable :: a
+
+    p = 7
+    m = 13
+    allocate(a(m,m), b(m), bstar(m), c(m))
+
+    c         = [0._wp, 2._wp/27._wp, 1._wp/9._wp, 1._wp/6._wp, 5._wp/12._wp, &
+                & 0.5_wp, 5._wp/6._wp, 1._wp/6._wp, 2._wp/3._wp, &
+                & 1._wp/3._wp, 1._wp, 0._wp, 1._wp]
+    b         = [41._wp/840._wp, 0._wp, 0._wp, 0._wp, 0._wp, 34._wp/105._wp, &
+                & 9._wp/35._wp, 9._wp/35._wp, 9._wp/280._wp, 9._wp/280._wp, &
+                & 41._wp/840._wp, 0._wp, 0._wp]
+    bstar     = [0._wp, 0._wp, 0._wp, 0._wp, 0._wp, 34._wp/105._wp, &
+                & 9._wp/35._wp, 9._wp/35._wp, 9._wp/280._wp, &
+                & 9._wp/280._wp, 0._wp, 41._wp/840._wp, 41._wp/840._wp]
+
+    a           = 0._wp
+    a(2,1)      = 2._wp/27._wp
+    a(3, 1:2)   = [1._wp/36._wp, 1._wp/12._wp]
+    a(4, 1:3)   = [1._wp/24._wp, 0._wp, 1._wp/8._wp]
+    a(5, 1:4)   = [5._wp/12._wp, 0._wp, -25._wp/16._wp, 25._wp/16._wp]
+    a(6, 1:5)   = [1._wp/20._wp, 0._wp, 0._wp, 1._wp/4._wp, 1._wp/5._wp]
+    a(7, 1:6)   = [-25._wp/108._wp, 0._wp, 0._wp, 125._wp/108._wp, &
+                  & -65._wp/27._wp, 125._wp/54._wp]
+    a(8, 1:7)   = [31._wp/300._wp, 0._wp, 0._wp, 0._wp, 61._wp/225._wp, &
+                  & -2._wp/9._wp, 13._wp/900._wp]
+    a(9, 1:8)   = [2._wp, 0._wp, 0._wp, -53._wp/6._wp, 704._wp/45._wp, &
+                  & -107._wp/9._wp, 67._wp/90._wp, 3._wp]
+    a(10, 1:9)  = [-91._wp/108._wp, 0._wp, 0._wp, 23._wp/108._wp, &
+                  & -976._wp/135._wp, 311._wp/54._wp, -19._wp/60._wp, &
+                                & 17._wp/6._wp, -1._wp/12._wp]
+    a(11, 1:10) = [2383._wp/4100._wp, 0._wp, 0._wp, -341._wp/164._wp, &
+                  & 4496._wp/1025._wp, -301._wp/82._wp, 2133._wp/4100._wp, &
+                  & 45._wp/82._wp, 45._wp/164._wp, 18._wp/41._wp]
+    a(12, 1:11) = [3._wp/205._wp, 0._wp, 0._wp, 0._wp, 0._wp, -6._wp/41._wp, &
+                  & -3._wp/205._wp, -3._wp/41._wp, 3._wp/41._wp, 6._wp/41._wp, &
+                  & 0._wp]
+    a(13, 1:12) = [-1777._wp/4100._wp, 0._wp, 0._wp, -341._wp/164._wp, &
+                  & 4496._wp/1025._wp, -289._wp/82._wp, 2193._wp/4100._wp, &
+                  & 51._wp/82._wp, 33._wp/164, 19._wp/41._wp, 0._wp, 1._wp]
+
+    return
+  end subroutine fehlbery_rk78
 
 end module rk_constants

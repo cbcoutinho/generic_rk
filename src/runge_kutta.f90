@@ -4,6 +4,7 @@ module runge_kutta
   use rk_constants, only: midpoint, heun, ralston
   use rk_constants, only: heun_euler, fehlbery_rk12, bogacki_shampine
   use rk_constants, only: fehlbery_rk45, cash_karp_rk45, dormand_prince_rk45
+  use rk_constants, only: fehlbery_rk78
   implicit none
 
 contains
@@ -33,8 +34,12 @@ contains
     real(wp), dimension(:,:), allocatable         :: a
 
     ! Get the tableau coefficients associated with a runge kutta implementation
-    call dormand_prince_rk45(a, b, bstar, c, m, p)
+    ! call heun_euler(a, b, bstar, c, m, p)
+    ! call dormand_prince_rk45(a, b, bstar, c, m, p)
+    call fehlbery_rk78(a, b, bstar, c, m, p)
+
     ! call heun(a, b, c, m, p)
+    ! call three_eighths_rk4(a, b, c, m, p)
 
     ! Initial guess for dt is just the difference between t(1:2), this way new
     ! versions of dt will be saved in each call to rk_adaptive
@@ -45,14 +50,17 @@ contains
       tspan = t(ii:ii+1)
 
       call rk_adaptive(n, tspan, dt, yy, dysub, a, b, bstar, c, m, p)
-      ! call rk_explicit(n, t(ii), t(ii+1)-t(ii), yy, dysub, a, b, c, m, p)
+      ! call rk_explicit(n, t(ii), t(ii+1)-t(ii), yy, dysub, a, b, c, m)
 
       y(ii+1, :) = yy
 
       ! if (ii == 1) stop
     end do
 
-    deallocate(a, b, bstar, c)
+    if (allocated(a)) deallocate(a)
+    if (allocated(b)) deallocate(b)
+    if (allocated(bstar)) deallocate(bstar)
+    if (allocated(c)) deallocate(c)
 
     return
   end subroutine rk_wrapper
@@ -77,14 +85,15 @@ contains
     end interface
 
     ! Local arguments
-    integer                               :: ii, jj, kk
     real(wp)                              :: t, error
-    real(wp), parameter                   :: eps1 = sqrt(epsilon(1._wp))
+    real(wp), parameter                   :: eps = sqrt(epsilon(1._wp))
+    real(wp), parameter                   :: eps_abs = 1d-5 ! sqrt(epsilon(1._wp))
+    real(wp), parameter                   :: eps_rel = 1d-5
     real(wp), dimension(n)                :: dummy_y, y_star
 
     integer                               :: eval, num_dt
-    integer, parameter                    :: max_eval = 100
-    real(wp)                              :: s, new_s
+    integer, parameter                    :: max_eval = 500
+    real(wp)                              :: s, gamma, sc, maxy
     logical                               :: last
 
     num_dt = 1
@@ -112,38 +121,39 @@ contains
 
         ! error = maxval(abs(dummy_y - y_star))
         error = norm2(dummy_y - y_star)
+        maxy = maxval([ maxval(abs(dummy_y)), maxval(abs(y_star)) ])
 
-        s = eps1*dt / &
-            & (2._wp * (tspan(2) - tspan(1)) * error)
+        sc = eps_abs + maxy * eps_rel
+        gamma = 0.25_wp ** (1._wp / real(p,wp))
+        ! gamma = 0.9_wp
+        ! s = gamma * (eps/error) ** ( 1._wp/real(p,wp) )
+        s = gamma * (sc/error) ** ( 1._wp/real(p,wp) )
+        ! s = eps*dt / &
+        !     & (2._wp * (tspan(2) - tspan(1)) * error)
         ! print*, 'error    = ', error
+        ! print*, 'maxy     = ', maxy
+        ! print*, 'sc       = ', sc
         ! print*, 's        = ', s
         ! print*, 'sqrt(s)  = ', sqrt(s)
         ! print*,
-
-        new_s = 0.9_wp * (eps1/error) ** (1._wp/real(p, wp))
-        ! print*, 'new_s    = ', new_s
         ! stop
 
         ! Adjust dt based on estimation of error
-        if ( new_s >= 2._wp ) then
+        if ( s >= 2._wp ) then
           t = t + dt
           y = y_star
           dt = dt * 2._wp
           ! print*, 'Adjusted dt with factor of 2'
           exit
-        else if ( new_s < 2._wp .and. new_s >= 1._wp ) then
+        else if ( s < 2._wp .and. s >= 1._wp ) then
           t = t + dt
           y = y_star
           ! dt = dt * s
           ! print 121, 'Adjusted dt with factor of ', s
-          ! dt = dt * new_s
-          ! print 121, 'Adjusted dt with factor of ', new_s
           exit
-        else if ( new_s <= 1._wp ) then
-          ! dt = dt * s
+        else if ( s <= 1._wp ) then
+          dt = dt * s
           ! print 121, 'Adjusted dt with factor of ', s
-          dt = dt * new_s
-          ! print 121, 'Adjusted dt with factor of ', new_s
         end if
 
         if ( eval == max_eval ) then
@@ -151,6 +161,8 @@ contains
         end if
 
       end do
+
+      write(22,*) t, y
 
       ! num_dt = num_dt + 1
       ! print 120, t, tspan, dt, y

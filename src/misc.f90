@@ -52,12 +52,12 @@ contains
     real(wp), intent(in), dimension(n)  :: y
     real(wp), intent(out), dimension(n) :: dy
 
-    real(wp), parameter                 :: mu = 30.53_wp
+    real(wp), parameter                 :: mu = 0.2_wp
     real(wp), parameter                 :: A = 3.2_wp
     real(wp), parameter                 :: omega = 2._wp*pi/10_wp
 
     dy(1) = y(2)
-    dy(2) = mu * (1._wp-y(1)*y(1)) * y(2) - y(1) + A*dsin(t*omega)
+    dy(2) = mu * (1._wp-y(1)*y(1)) * y(2) - y(1) !+ A*dsin(t*omega)
 
     return
   end subroutine vanderpol

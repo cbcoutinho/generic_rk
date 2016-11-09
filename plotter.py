@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 filename = 'data.out'
+# filename = 'raw.out'
 
 fig = plt.figure()
 
