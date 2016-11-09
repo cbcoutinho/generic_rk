@@ -4,7 +4,8 @@ current_dir = $(shell pwd)
 SRC=$(current_dir)/src
 OBJ=$(current_dir)/obj
 BIN=$(current_dir)/bin
-FORTRANLIB_SRC=$(current_dir)/src/fortranlib/src
+TEST=$(SRC)/test
+FORTRANLIB_SRC=$(SRC)/fortranlib/src
 
 # Compiler
 FF = gfortran
@@ -16,11 +17,10 @@ FFLAGS += -g -fcheck=all -fbacktrace #-ffpe-trap=zero,overflow,underflow
 
 FLIBS = -lblas -llapack
 
-.DEFAULT_GOAL := $(BIN)/main
+.DEFAULT_GOAL := $(OBJ)/runge_kutta.o
 
 # Dependencies of main program
-objects=$(OBJ)/misc.o \
-	$(OBJ)/runge_kutta.o \
+objects=$(OBJ)/runge_kutta.o \
 	$(OBJ)/rk_constants.o \
 	$(OBJ)/lib_array.o \
 	$(OBJ)/lib_constants.o
@@ -32,26 +32,30 @@ $(OBJ)/lib_constants.o: $(FORTRANLIB_SRC)/lib_constants.f90
 	$(FF) -J$(OBJ) -c -o $@ $<
 
 # Modules
-$(OBJ)/misc.o: $(SRC)/misc.f90 $(OBJ)/lib_constants.o
-	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
 $(OBJ)/runge_kutta.o: $(SRC)/runge_kutta.f90 $(OBJ)/rk_constants.o
 	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
 $(OBJ)/rk_constants.o: $(SRC)/rk_constants.f90
 	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
 
-# Main program
-$(OBJ)/main.o: $(SRC)/main.f90 $(objects)
+# Module containing test functions
+$(OBJ)/misc.o: $(TEST)/misc.f90 $(OBJ)/lib_constants.o
+	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
+
+# Main test program
+$(OBJ)/main.o: $(TEST)/main.f90 $(OBJ)/misc.o $(objects)
 	$(FF) $(FFLAGS) -I$(OBJ) -c -o $@ $<
-$(BIN)/main: $(OBJ)/main.o $(objects)
+$(TEST)/main: $(OBJ)/main.o $(OBJ)/misc.o $(objects)
 	$(FF) $(FFLAGS) -o $@ $+ $(FLIBS)
 
 clean:
-	rm -f $(OBJ)/*.o $(OBJ)/*.mod $(BIN)/main
+	rm -f $(OBJ)/*.o $(OBJ)/*.mod
+	rm -f $(TEST)/main $(TEST)/*.o $(TEST)/*.mod
+	rm -f data.out raw.out
 
-run: $(BIN)/main
-	$(BIN)/main
+test: $(TEST)/main
+	$(TEST)/main
 
-plot: clean $(BIN)/main run
+plot: clean $(TEST)/main test
 	python plotter.py
 
 debug: clean $(BIN)/main
