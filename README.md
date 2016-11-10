@@ -1,4 +1,4 @@
-The generic_rk module is an attempt to modularize solvers for ordinary differential equations (ODEs).
+The generic_rk module is an attempt to modularize solvers for ordinary differential equations (ODEs) in Fortran.
 
 Below is the result of an example problem known as the Brusselator using an adaptive timestep control. The first subplot shows the raw results of $y_1$ and $y_2$ within the range $t \in [0, 20]$. The second subplot shows the acceptable $dt$ used throughout the simulation.
 
