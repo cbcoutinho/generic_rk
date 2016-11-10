@@ -2,14 +2,23 @@ module rk_constants
   use iso_fortran_env, only: wp => real64
   implicit none
 
-  public :: classic_rk4, three_eighths_rk4
-  public :: midpoint, heun, ralston
-  public :: heun_euler, fehlbery_rk12, bogacki_shampine
-  public :: fehlbery_rk45, cash_karp_rk45, dormand_prince_rk45
-  public :: fehlbery_rk78
+  ! Tableaus associated with Explicit RK methods
+  public :: classic_rk4, &
+          & three_eighths_rk4, &
+          & midpoint, &
+          & heun, &
+          & ralston
+
+  ! Tableaus associated with Embedded/Adaptive RK methods
+  public :: heun_euler, &
+          & fehlbery_rk12, &
+          & bogacki_shampine, &
+          & fehlbery_rk45, &
+          & cash_karp_rk45, &
+          & dormand_prince_rk45, &
+          & fehlbery_rk78
 
   private :: two_stage
-
 
 contains
 

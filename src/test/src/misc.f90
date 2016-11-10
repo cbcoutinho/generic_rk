@@ -1,7 +1,8 @@
 module misc
   use iso_fortran_env, only: wp => real64
-  use lib_constants, only: pi => pi_dp
   implicit none
+
+  real(wp), parameter :: pi = 4._wp*datan(1._wp)
 
 contains
 
@@ -14,8 +15,8 @@ contains
     ! call simple_trig(n, t, y, dy)
     ! call simple_ode(n, t, y, dy)
     ! call vanderpol(n, t, y, dy)
-    call lorenz(n, t, y, dy)
-    ! call brusselator(n, t, y, dy)
+    ! call lorenz(n, t, y, dy)
+    call brusselator(n, t, y, dy)
 
 
     return
@@ -41,7 +42,6 @@ contains
 
     dy(1) = y(2)
     dy(2) = -y(1)
-    dy(3) = -y(2)
 
     return
   end subroutine simple_ode
@@ -52,7 +52,7 @@ contains
     real(wp), intent(in), dimension(n)  :: y
     real(wp), intent(out), dimension(n) :: dy
 
-    real(wp), parameter                 :: mu = 53._wp
+    real(wp), parameter                 :: mu = 0.2_wp
     real(wp), parameter                 :: A = 3.2_wp
     real(wp), parameter                 :: omega = 2._wp*pi/11_wp
 

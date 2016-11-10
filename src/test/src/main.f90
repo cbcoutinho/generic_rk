@@ -1,13 +1,12 @@
 program main
   use iso_fortran_env, only: wp => real64
-  use misc, only: mysub
+  use misc, only: mysub, pi
   use runge_kutta, only: rk_wrapper
   use lib_array, only: linspace
-  use lib_constants, only: pi => pi_dp
   implicit none
 
   integer                       :: ii, ios
-  integer, parameter            :: n = 3, num_t = 10000
+  integer, parameter            :: n = 2, num_t = 2
   real(wp)                      :: t0, tend
   real(wp), dimension(num_t)    :: t
   real(wp), dimension(n)        :: y0
@@ -19,17 +18,17 @@ program main
   ! Set time vector `t`
   t0   = 0.0_wp
   ! tend    = 4_wp*pi
-  tend = 100._wp
+  tend = 20._wp
   call linspace(t0, tend, t)
 
   ! Set y vector `y` using y0
   ! y0 = [0._wp, 0.1_wp]
-  ! y0 = [1.5_wp, 3._wp]
-  y0 = [0.1_wp, 10.0_wp, 10.0_wp]
+  y0 = [1.5_wp, 3._wp]
+  ! y0 = [0.1_wp, 10.0_wp, 10.0_wp]
   ! y0      = [0._wp, 1._wp, 0._wp]
   y(1,:)  = y0
 
-  write(22,*) t0, y0
+  write(22,*) t0, 0._wp, y0
 
 
   call rk_wrapper(n, num_t, t, y, mysub)
@@ -43,14 +42,10 @@ program main
       write(21,*) t(ii), y(ii, :)
   end do
 
-  print*, t(num_t), y(num_t, :)
-
   close(unit=21, iostat=ios)
   if ( ios /= 0 ) stop "Error closing file unit 21"
 
   close(unit=22, iostat=ios)
   if ( ios /= 0 ) stop "Error closing file unit 22"
-
-
 
 end program main

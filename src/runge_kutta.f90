@@ -1,11 +1,28 @@
 module runge_kutta
   use iso_fortran_env, only: wp => real64
-  use rk_constants, only: classic_rk4, three_eighths_rk4
-  use rk_constants, only: midpoint, heun, ralston
-  use rk_constants, only: heun_euler, fehlbery_rk12, bogacki_shampine
-  use rk_constants, only: fehlbery_rk45, cash_karp_rk45, dormand_prince_rk45
-  use rk_constants, only: fehlbery_rk78
+  use rk_constants, only: classic_rk4, &
+                        & three_eighths_rk4, &
+                        & midpoint, &
+                        & heun, &
+                        & ralston
+  use rk_constants, only: heun_euler, &
+                        & fehlbery_rk12, &
+                        & bogacki_shampine, &
+                        & fehlbery_rk45, &
+                        & cash_karp_rk45, &
+                        & dormand_prince_rk45, &
+                        & fehlbery_rk78
   implicit none
+
+  interface
+    subroutine sub_interface(n, t, y, dy)
+      import wp
+      integer,  intent(in)                  :: n
+      real(wp), intent(in)                  :: t
+      real(wp), intent(in),   dimension(n)  :: y
+      real(wp), intent(out),  dimension(n)  :: dy
+    end subroutine
+  end interface
 
 contains
 
@@ -14,16 +31,7 @@ contains
     integer,  intent(in)                          :: n, num_t
     real(wp), intent(inout),  dimension(num_t)    :: t
     real(wp),                 dimension(num_t, n) :: y
-
-    interface
-      subroutine dysub(n, t, y, dy)
-        import wp
-        integer,  intent(in)                      :: n
-        real(wp), intent(in)                      :: t
-        real(wp), intent(in),   dimension(n)      :: y
-        real(wp), intent(out),  dimension(n)      :: dy
-      end subroutine
-    end interface
+    procedure(sub_interface)                      :: dysub
 
     ! Local arguments
     integer                                       :: ii, m, p
@@ -35,15 +43,22 @@ contains
 
     ! Get the tableau coefficients associated with a runge kutta implementation
     ! call heun_euler(a, b, bstar, c, m, p)
-    ! call dormand_prince_rk45(a, b, bstar, c, m, p)
-    call fehlbery_rk78(a, b, bstar, c, m, p)
+    ! call fehlbery_rk12(a, b, bstar, c, m, p)
+    ! call bogacki_shampine(a, b, bstar, c, m, p)
+    ! call fehlbery_rk45(a, b, bstar, c, m, p)
+    call dormand_prince_rk45(a, b, bstar, c, m, p)
+    ! call fehlbery_rk78(a, b, bstar, c, m, p)
 
     ! call heun(a, b, c, m, p)
     ! call three_eighths_rk4(a, b, c, m, p)
 
     ! Initial guess for dt is just the difference between t(1:2), this way new
     ! versions of dt will be saved in each call to rk_adaptive
-    dt = t(2) - t(1)
+    !
+    ! EDIT 10-11-2016: change dt to be the minimum value between t(2)-t(1) and
+    ! 1d-2 because sometimes you only want a very sparse output of data, and
+    ! that could overshoot a good initial guess. This should be smarter
+    dt = minval([t(2) - t(1), 1d-1])
 
     do ii = 1, num_t-1
       yy = y(ii,:)
@@ -73,22 +88,12 @@ contains
     real(wp), intent(inout),  dimension(n)    :: y
     real(wp), intent(in),     dimension(m)    :: c, b, bstar
     real(wp), intent(in),     dimension(m,m)  :: a
-
-    interface
-      subroutine dysub(n, t, y, dy)
-        import wp
-        integer,  intent(in)                  :: n
-        real(wp), intent(in)                  :: t
-        real(wp), intent(in),   dimension(n)  :: y
-        real(wp), intent(out),  dimension(n)  :: dy
-      end subroutine
-    end interface
+    procedure(sub_interface)                  :: dysub
 
     ! Local arguments
     real(wp)                              :: t, error
-    real(wp), parameter                   :: eps = sqrt(epsilon(1._wp))
-    real(wp), parameter                   :: eps_abs = 1d-5 ! sqrt(epsilon(1._wp))
-    real(wp), parameter                   :: eps_rel = 1d-5
+    real(wp), parameter                   :: eps_abs = 1d-4 ! sqrt(epsilon(1._wp))
+    real(wp), parameter                   :: eps_rel = 1d-4
     real(wp), dimension(n)                :: dummy_y, y_star
 
     integer                               :: eval, num_dt
@@ -121,14 +126,15 @@ contains
 
         ! error = maxval(abs(dummy_y - y_star))
         error = norm2(dummy_y - y_star)
-        maxy = maxval([ maxval(abs(dummy_y)), maxval(abs(y_star)) ])
+        maxy = maxval([ abs(dummy_y), abs(y_star) ])
 
-        sc = eps_abs + maxy * eps_rel
         gamma = 0.25_wp ** (1._wp / real(p,wp))
         ! gamma = 0.9_wp
-        ! s = gamma * (eps/error) ** ( 1._wp/real(p,wp) )
+
+        sc = eps_abs + maxy * eps_rel
+
         s = gamma * (sc/error) ** ( 1._wp/real(p,wp) )
-        ! s = eps*dt / &
+        ! s = eps_abs*dt / &
         !     & (2._wp * (tspan(2) - tspan(1)) * error)
         ! print*, 'error    = ', error
         ! print*, 'maxy     = ', maxy
@@ -148,7 +154,7 @@ contains
         else if ( s < 2._wp .and. s >= 1._wp ) then
           t = t + dt
           y = y_star
-          ! dt = dt * s
+          dt = dt * s
           ! print 121, 'Adjusted dt with factor of ', s
           exit
         else if ( s <= 1._wp ) then
@@ -162,7 +168,7 @@ contains
 
       end do
 
-      write(22,*) t, y
+      write(22,*) t, dt, y
 
       ! num_dt = num_dt + 1
       ! print 120, t, tspan, dt, y
@@ -197,25 +203,44 @@ contains
     real(wp), intent(inout),  dimension(n)    :: y
     real(wp), intent(in),     dimension(m)    :: b, c
     real(wp), intent(in),     dimension(m,m)  :: a
+    procedure(sub_interface)                  :: dysub
 
-    interface
-      subroutine dysub(n, t, y, dy)
-        import wp
-        integer,  intent(in)                  :: n
-        real(wp), intent(in)                  :: t
-        real(wp), intent(in),   dimension(n)  :: y
-        real(wp), intent(out),  dimension(n)  :: dy
-      end subroutine
-    end interface
+    ! Local arguments
+    integer                   :: ii
+    real(wp), dimension(n)    :: dy
+    real(wp), dimension(m,n)  :: k
+
+    ! Initialize guess for the values of k, just k = dy0 = f(t0, y0)
+    do ii = 1, m
+      call dysub(n, t, y, dy)
+      k(ii, :) = dy
+    end do
+
+    ! Calculate values of k
+    call calc_k(n, t, dt, y, dysub, a, b, c, m, k)
+
+    ! Calculate y(t+dt) using y(t) and k()'s
+    y = y + [( dt*dot_product(b,k(:,ii)), ii = 1, n )]
+
+    return
+  end subroutine rk_explicit
+
+  subroutine calc_k(n, t, dt, y, dysub, a, b, c, m, k)
+    ! Dummy arguments
+    integer,  intent(in)                      :: n, m
+    real(wp), intent(in)                      :: t, dt
+    real(wp), intent(inout),  dimension(n)    :: y
+    real(wp), intent(in),     dimension(m)    :: b, c
+    real(wp), intent(in),     dimension(m,m)  :: a
+    real(wp), intent(inout),  dimension(m,n)  :: k
+    procedure(sub_interface)                  :: dysub
 
     ! Local arguments
     integer                   :: ii, jj
     real(wp)                  :: dummy_t
     real(wp), dimension(n)    :: dummy_y
-    real(wp), dimension(m,n)  :: k
     real(wp), dimension(n)    :: dy
 
-    k = 0._wp
     dummy_y = y
 
     do ii = 1, m
@@ -230,9 +255,7 @@ contains
 
     end do
 
-    y = y + [( dt*dot_product(b,k(:,jj)), jj = 1, n )]
-
     return
-  end subroutine rk_explicit
+  end subroutine calc_k
 
 end module runge_kutta
