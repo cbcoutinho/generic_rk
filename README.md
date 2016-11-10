@@ -11,4 +11,5 @@ $$
 
 $$ y_1(0) = 1.5, ~~~ y_2(0) = 3, ~~~ t \in [0, 20]$$
 
-![sample](plot.png){: height="100px"}
+
+![sample](plot.png)
