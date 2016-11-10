@@ -30,10 +30,7 @@ $(OBJ)/lib_array.o: $(FORTRANLIB_SRC)/lib_array.f90
 $(OBJ)/misc.o: $(SRC)/misc.f90
 	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
 
-$(OBJ)/main.o: $(SRC)/main.f90 $(objects)
-	$(FF) $(FFLAGS) -I$(RK_OBJ) -I$(OBJ) -c -o $@ $^ $(rk_objects)
-
-$(BIN)/main: $(OBJ)/main.o $(objects) $(rk_objects)
+$(BIN)/main: $(SRC)/main.f90 $(objects) $(rk_objects)
 	$(FF) $(FFLAGS) -I$(RK_OBJ) -I$(OBJ) -o $@ $+ $(FLIBS)
 
 clean:
