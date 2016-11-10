@@ -14,7 +14,6 @@ FFLAGS += -g -fcheck=all -fbacktrace #-ffpe-trap=zero,overflow,underflow
 # Release flags:
 # FFLAGS += -O3 -march=native -ffast-math -funroll-loops
 
-# FLIBS = -L/home/chris/Software/intel/mkl/lib/intel64/
 FLIBS += -lblas -llapack
 
 .DEFAULT_GOAL := test

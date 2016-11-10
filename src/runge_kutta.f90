@@ -58,7 +58,7 @@ contains
     ! EDIT 10-11-2016: change dt to be the minimum value between t(2)-t(1) and
     ! 1d-2 because sometimes you only want a very sparse output of data, and
     ! that could overshoot a good initial guess. This should be smarter
-    dt = minval([t(2) - t(1), 1d-1])
+    dt = minval([t(2) - t(1), 1d-2])
 
     do ii = 1, num_t-1
       yy = y(ii,:)
@@ -140,7 +140,6 @@ contains
         ! print*, 'maxy     = ', maxy
         ! print*, 'sc       = ', sc
         ! print*, 's        = ', s
-        ! print*, 'sqrt(s)  = ', sqrt(s)
         ! print*,
         ! stop
 
@@ -151,7 +150,7 @@ contains
           dt = dt * 2._wp
           ! print*, 'Adjusted dt with factor of 2'
           exit
-        else if ( s < 2._wp .and. s >= 1._wp ) then
+        else if ( s < 2._wp .and. s >= 0.999_wp ) then
           t = t + dt
           y = y_star
           dt = dt * s
@@ -163,7 +162,13 @@ contains
         end if
 
         if ( eval == max_eval ) then
-          print*, "Warning, max eval iterations reached!"
+          print*, 'dummy_y  = ', dummy_y
+          print*, 'y_star   = ', y_star
+          print*, 'error    = ', error
+          print*, 'maxy     = ', maxy
+          print*, 'sc       = ', sc
+          print*, 's        = ', s
+          stop "Warning, max eval iterations reached!"
         end if
 
       end do
