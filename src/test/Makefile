@@ -14,20 +14,22 @@ FFLAGS += -g -fcheck=all -fbacktrace #-ffpe-trap=zero,overflow,underflow
 # Release flags:
 # FFLAGS += -O3 -march=native -ffast-math -funroll-loops
 
-FLIBS += -lblas -llapack
+FLIBS += -lblas -llapack -fopenmp
 
 .DEFAULT_GOAL := test
 
 rk_objects = $(RK_OBJ)/runge_kutta.o \
-	$(RK_OBJ)/rk_constants.o
+	$(RK_OBJ)/rk_constants.o \
+	$(RK_OBJ)/linalg.o \
+	$(RK_OBJ)/nonlinalg.o
 objects = $(OBJ)/lib_array.o \
 	$(OBJ)/misc.o
 
 $(OBJ)/lib_array.o: $(FORTRANLIB_SRC)/lib_array.f90
-	$(FF) -J$(OBJ) -c -o $@ $<
+	$(FF) -J$(OBJ) -c -o $@ $< $(FLIBS)
 
 $(OBJ)/misc.o: $(SRC)/misc.f90
-	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $<
+	$(FF) $(FFLAGS) -J$(OBJ) -c -o $@ $< $(FLIBS)
 
 $(BIN)/main: $(SRC)/main.f90 $(objects) $(rk_objects)
 	$(FF) $(FFLAGS) -I$(RK_OBJ) -I$(OBJ) -o $@ $+ $(FLIBS)
@@ -39,6 +41,9 @@ clean:
 
 test: clean $(BIN)/main
 	$(BIN)/main
+
+debug: $(BIN)/main
+	/usr/bin/valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all $(BIN)/main
 
 plot: test
 	python plotter.py

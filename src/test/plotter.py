@@ -28,36 +28,36 @@ y1  = df_raw.y1.values
 y2  = df_raw.y2.values
 # y3  = df.y3.values
 
-ax = fig.add_subplot(211)
-ax.plot(t, y1, marker='o', linestyle='-', label='y1')
-ax.plot(t, y2, marker='o', linestyle='-', label='y2')
-# ax.plot(t, x3, marker='o', linestyle='None', label='x3')
+ax1 = fig.add_subplot(211)
+ax1.plot(t, y1, marker='o', linestyle='-', label='y1')
+ax1.plot(t, y2, marker='o', linestyle='-', label='y2')
+# ax1.plot(t, x3, marker='o', linestyle='None', label='x3')
 
-ax.set_xlabel('t')
-ax.set_ylabel('y')
-ax.legend()
+ax1.set_xlabel('t')
+ax1.set_ylabel('y')
+ax1.legend()
 
 # tt = np.linspace(t[0], t[-1], 100)
-# ax.plot(tt, np.cos(tt), linestyle='-', label='cos(t)')
-# ax.plot(tt, np.sin(tt), linestyle='-', label='sin(t)')
-# ax.plot(tt, -np.sin(tt), linestyle='-', label='-cos(t)')
+# ax1.plot(tt, np.cos(tt), linestyle='-', label='cos(t)')
+# ax1.plot(tt, np.sin(tt), linestyle='-', label='sin(t)')
+# ax1.plot(tt, -np.sin(tt), linestyle='-', label='-cos(t)')
 
 # x  = df.x.values
 # y  = df.y.values
 # z  = df.z.values
 #
-# ax = fig.add_subplot(111, projection='3d')
-# ax.plot(x, y, z, label='lorenz attractor')
+# ax1 = fig.add_subplot(111, projection='3d')
+# ax1.plot(x, y, z, label='lorenz attractor')
 
-ax = fig.add_subplot(212)
-ax.plot(df_raw.t.values, df_raw.dt.values,
-        marker='+',
-        linestyle='None',
-        label='Acceptable dt')
+ax2 = fig.add_subplot(212, sharex=ax1)
+ax2.semilogy(df_raw.t.values, df_raw.dt.values,
+             marker='+',
+             linestyle='None',
+             label='Acceptable dt')
 
-ax.set_xlabel('t')
-ax.set_ylabel('dt')
-ax.legend()
+ax2.set_xlabel('t')
+ax2.set_ylabel('dt')
+ax2.legend()
 
 plt.savefig('plot.png')
 plt.show()

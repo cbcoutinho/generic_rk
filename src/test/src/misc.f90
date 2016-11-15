@@ -14,9 +14,9 @@ contains
 
     ! call simple_trig(n, t, y, dy)
     ! call simple_ode(n, t, y, dy)
-    ! call vanderpol(n, t, y, dy)
+    call vanderpol(n, t, y, dy)
     ! call lorenz(n, t, y, dy)
-    call brusselator(n, t, y, dy)
+    ! call brusselator(n, t, y, dy)
 
 
     return
@@ -52,8 +52,8 @@ contains
     real(wp), intent(in), dimension(n)  :: y
     real(wp), intent(out), dimension(n) :: dy
 
-    real(wp), parameter                 :: mu = 0.2_wp
-    real(wp), parameter                 :: A = 3.2_wp
+    real(wp), parameter                 :: mu = 10._wp
+    real(wp), parameter                 :: A = 0._wp
     real(wp), parameter                 :: omega = 2._wp*pi/11_wp
 
     dy(1) = y(2)

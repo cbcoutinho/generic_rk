@@ -5,6 +5,7 @@ module runge_kutta
                         & midpoint, &
                         & heun, &
                         & ralston
+
   use rk_constants, only: heun_euler, &
                         & fehlbery_rk12, &
                         & bogacki_shampine, &
@@ -12,10 +13,17 @@ module runge_kutta
                         & cash_karp_rk45, &
                         & dormand_prince_rk45, &
                         & fehlbery_rk78
+
+  use rk_constants, only: trapezoidal, &
+                        & gauss_legendre4, &
+                        & gauss_legendre6
+
+  use nonlinalg, only: nonlinsolve
+
   implicit none
 
   interface
-    subroutine sub_interface(n, t, y, dy)
+    subroutine sub_interf(n, t, y, dy)
       import wp
       integer,  intent(in)                  :: n
       real(wp), intent(in)                  :: t
@@ -31,7 +39,7 @@ contains
     integer,  intent(in)                          :: n, num_t
     real(wp), intent(inout),  dimension(num_t)    :: t
     real(wp),                 dimension(num_t, n) :: y
-    procedure(sub_interface)                      :: dysub
+    procedure(sub_interf)                         :: dysub
 
     ! Local arguments
     integer                                       :: ii, m, p
@@ -40,32 +48,43 @@ contains
     real(wp), dimension(n)                        :: yy
     real(wp), dimension(:),   allocatable         :: c, b, bstar
     real(wp), dimension(:,:), allocatable         :: a
+    logical                                       :: explicit
+    logical,  dimension(:,:), allocatable         :: diag_upper
 
     ! Get the tableau coefficients associated with a runge kutta implementation
     ! call heun_euler(a, b, bstar, c, m, p)
     ! call fehlbery_rk12(a, b, bstar, c, m, p)
     ! call bogacki_shampine(a, b, bstar, c, m, p)
     ! call fehlbery_rk45(a, b, bstar, c, m, p)
-    call dormand_prince_rk45(a, b, bstar, c, m, p)
+    ! call dormand_prince_rk45(a, b, bstar, c, m, p)
     ! call fehlbery_rk78(a, b, bstar, c, m, p)
 
     ! call heun(a, b, c, m, p)
     ! call three_eighths_rk4(a, b, c, m, p)
 
-    ! Initial guess for dt is just the difference between t(1:2), this way new
-    ! versions of dt will be saved in each call to rk_adaptive
-    !
+    call trapezoidal(a, b, bstar, c, m, p)
+    ! call gauss_legendre4(a, b, bstar, c, m, p)
+    ! call gauss_legendre6(a, b, bstar, c, m, p)
+
+    explicit = check_explicit(a, m)
+    ! explicit = .false.
+
+    ! do ii = 1, m
+    !   print*, a(ii,:)
+    ! end do
+
+
     ! EDIT 10-11-2016: change dt to be the minimum value between t(2)-t(1) and
     ! 1d-2 because sometimes you only want a very sparse output of data, and
     ! that could overshoot a good initial guess. This should be smarter
-    dt = minval([t(2) - t(1), 1d-2])
+    dt = minval([t(2) - t(1), 1d-1])
 
     do ii = 1, num_t-1
       yy = y(ii,:)
       tspan = t(ii:ii+1)
 
-      call rk_adaptive(n, tspan, dt, yy, dysub, a, b, bstar, c, m, p)
-      ! call rk_explicit(n, t(ii), t(ii+1)-t(ii), yy, dysub, a, b, c, m)
+      call rk_adaptive(n, tspan, dt, yy, dysub, a, b, bstar, c, m, p, explicit)
+      ! call rk_explicit(n, t(ii), t(ii+1)-t(ii), yy, dysub, a, b, c, m, explicit)
 
       y(ii+1, :) = yy
 
@@ -80,7 +99,7 @@ contains
     return
   end subroutine rk_wrapper
 
-  subroutine rk_adaptive(n, tspan, dt, y, dysub, a, b, bstar, c, m, p)
+  subroutine rk_adaptive(n, tspan, dt, y, dysub, a, b, bstar, c, m, p, explicit)
     ! Dummy arguments
     integer,  intent(in)                      :: n, m, p
     real(wp), intent(inout)                   :: dt
@@ -88,12 +107,13 @@ contains
     real(wp), intent(inout),  dimension(n)    :: y
     real(wp), intent(in),     dimension(m)    :: c, b, bstar
     real(wp), intent(in),     dimension(m,m)  :: a
-    procedure(sub_interface)                  :: dysub
+    procedure(sub_interf)                     :: dysub
+    logical                                   :: explicit
 
     ! Local arguments
     real(wp)                              :: t, error
-    real(wp), parameter                   :: eps_abs = 1d-4 ! sqrt(epsilon(1._wp))
-    real(wp), parameter                   :: eps_rel = 1d-4
+    real(wp), parameter                   :: eps_abs = 1d-3 ! sqrt(epsilon(1._wp))
+    real(wp), parameter                   :: eps_rel = 1d-3
     real(wp), dimension(n)                :: dummy_y, y_star
 
     integer                               :: eval, num_dt
@@ -118,8 +138,8 @@ contains
         ! performance issue
         dummy_y = y
         y_star  = y
-        call rk_explicit(n, t, dt, dummy_y, dysub, a, b,      c, m)
-        call rk_explicit(n, t, dt, y_star,  dysub, a, bstar,  c, m)
+        call rk_explicit(n, t, dt, dummy_y, dysub, a, b,      c, m, explicit)
+        call rk_explicit(n, t, dt, y_star,  dysub, a, bstar,  c, m, explicit)
 
         ! print*, 'dummy_y  = ', dummy_y
         ! print*, 'y_star   = ', y_star
@@ -151,6 +171,7 @@ contains
           ! print*, 'Adjusted dt with factor of 2'
           exit
         else if ( s < 2._wp .and. s >= 0.999_wp ) then
+      ! else if ( s < 2._wp .and. s >= 1._wp ) then
           t = t + dt
           y = y_star
           dt = dt * s
@@ -201,14 +222,15 @@ contains
     return
   end subroutine rk_adaptive
 
-  subroutine rk_explicit(n, t, dt, y, dysub, a, b, c, m)
+  subroutine rk_explicit(n, t, dt, y, dysub, a, b, c, m, explicit)
     ! Dummy arguments
     integer,  intent(in)                      :: n, m
     real(wp), intent(in)                      :: t, dt
     real(wp), intent(inout),  dimension(n)    :: y
     real(wp), intent(in),     dimension(m)    :: b, c
     real(wp), intent(in),     dimension(m,m)  :: a
-    procedure(sub_interface)                  :: dysub
+    procedure(sub_interf)                     :: dysub
+    logical                                   :: explicit
 
     ! Local arguments
     integer                   :: ii
@@ -216,13 +238,17 @@ contains
     real(wp), dimension(m,n)  :: k
 
     ! Initialize guess for the values of k, just k = dy0 = f(t0, y0)
+    call dysub(n, t, y, dy)
     do ii = 1, m
-      call dysub(n, t, y, dy)
       k(ii, :) = dy
     end do
 
     ! Calculate values of k
-    call calc_k(n, t, dt, y, dysub, a, b, c, m, k)
+    if ( explicit ) then
+      call calc_k(n, t, dt, y, dysub, a, b, c, m, k)
+    else
+      call calc_k_implicit(n, t, dt, y, dysub, a, b, c, m, k)
+    end if
 
     ! Calculate y(t+dt) using y(t) and k()'s
     y = y + [( dt*dot_product(b,k(:,ii)), ii = 1, n )]
@@ -238,7 +264,7 @@ contains
     real(wp), intent(in),     dimension(m)    :: b, c
     real(wp), intent(in),     dimension(m,m)  :: a
     real(wp), intent(inout),  dimension(m,n)  :: k
-    procedure(sub_interface)                  :: dysub
+    procedure(sub_interf)                     :: dysub
 
     ! Local arguments
     integer                   :: ii, jj
@@ -251,7 +277,7 @@ contains
     do ii = 1, m
 
       dummy_t = t + dt*c(ii)
-      do jj = 1, ii-1
+      do jj = 1, ii
         dummy_y = dummy_y + dt*a(ii,jj)*k(jj,:)
       end do
 
@@ -262,5 +288,92 @@ contains
 
     return
   end subroutine calc_k
+
+  subroutine calc_k_implicit(n, t, dt, y, dysub, a, b, c, m, k)
+    ! Dummy arguments
+    integer,  intent(in)                      :: n, m
+    real(wp), intent(in)                      :: t, dt
+    real(wp), intent(inout),  dimension(n)    :: y
+    real(wp), intent(in),     dimension(m)    :: b, c
+    real(wp), intent(in),     dimension(m,m)  :: a
+    real(wp), intent(inout),  dimension(m,n)  :: k
+    procedure(sub_interf)                     :: dysub
+
+    ! Local arguments
+    integer                   :: ii, jj
+    real(wp)                  :: dummy_t
+    real(wp), dimension(n)    :: dummy_y
+    real(wp), dimension(n)    :: dy
+
+    ! print*, "I'm in the implicit solver", size(k), m, n
+    ! print*,
+
+    ! do ii = 1, m
+    !   print*, k(ii,:)
+    ! end do
+    ! print*,
+
+    ! dummy_k = reshape(k, [m*n])
+
+    k = reshape(nonlinsolve(calc_k_wrapper, m*n, reshape(k, [m*n])), [m,n])
+
+    ! print*, calc_k_wrapper(m*n, reshape(k, [m*n]))
+
+    ! do ii = 1, m
+    !   print*, k(ii,:)
+    ! end do
+    ! print*,
+
+    ! stop
+
+  contains
+
+    function calc_k_wrapper(mn, dummy_k) result(F)
+      ! Dummy arguments
+      integer,  intent(in)                :: mn
+      real(wp), intent(in), dimension(mn) :: dummy_k
+      real(wp),             dimension(mn) :: F
+
+      real(wp), dimension(m,n)  :: k0, k
+
+      k0 = reshape(dummy_k, [m, n])
+      k = k0
+
+      call calc_k(n, t, dt, y, dysub, a, b, c, m, k0)
+
+      ! do ii = 1,m
+      !   print*, k(ii,:) - k0(ii,:)
+      ! end do
+      ! print*,
+
+      F = reshape(k - k0, [m*n])
+
+      return
+    end function calc_k_wrapper
+
+  end subroutine calc_k_implicit
+
+  function check_explicit(a, m) result(explicit)
+    integer,  intent(in)                  :: m
+    real(wp), intent(in), dimension(m,m)  :: a
+
+    integer                 :: ii
+    logical                 :: explicit
+    logical, dimension(m,m) :: diag_upper
+
+    ! allocate(diag_upper(m,m))
+    diag_upper = .false.
+    do ii = 1, m
+      diag_upper(ii,ii:m) = .true.
+    end do
+
+    if ( sum(a, mask=diag_upper) == 0._wp ) then
+      explicit = .true.
+    else
+      explicit = .false.
+    end if
+
+    return
+  end function check_explicit
 
 end module runge_kutta

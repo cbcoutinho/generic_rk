@@ -9,7 +9,7 @@ module rk_constants
           & heun, &
           & ralston
 
-  ! Tableaus associated with Embedded/Adaptive RK methods
+  ! Tableaus associated with Embedded Explicit RK methods
   public :: heun_euler, &
           & fehlbery_rk12, &
           & bogacki_shampine, &
@@ -17,6 +17,11 @@ module rk_constants
           & cash_karp_rk45, &
           & dormand_prince_rk45, &
           & fehlbery_rk78
+
+  ! Tableaus associated with Embedded Implicit RK methods
+  public :: trapezoidal, &
+          & gauss_legendre4, &
+          & gauss_legendre6
 
   private :: two_stage
 
@@ -313,5 +318,66 @@ contains
 
     return
   end subroutine fehlbery_rk78
+
+  subroutine trapezoidal(a, b, bstar, c, m, p)
+    integer,  intent(out)                               :: m, p
+    real(wp), intent(out), dimension(:),    allocatable :: c, b, bstar
+    real(wp), intent(out), dimension(:,:),  allocatable :: a
+
+    p = 2
+    m = 2
+    allocate(a(m,m), b(m), bstar(m), c(m))
+
+    c       = [ 0._wp, 1._wp ]
+
+    a       = 0._wp
+    a(2,:)  = [ 0.5_wp, 0.5_wp ]
+
+    b       = [ 0.5_wp, 0.5_wp ]
+    bstar   = [ 1._wp, 0._wp ]
+
+    return
+  end subroutine trapezoidal
+
+  subroutine gauss_legendre4(a, b, bstar, c, m, p)
+    integer,  intent(out)                               :: m, p
+    real(wp), intent(out), dimension(:),    allocatable :: c, b, bstar
+    real(wp), intent(out), dimension(:,:),  allocatable :: a
+
+    p = 4
+    m = 2
+    allocate(a(m,m), b(m), bstar(m), c(m))
+
+    c       = [ 0.5_wp - sqrt(3._wp)/6._wp, 0.5_wp + sqrt(3._wp)/6._wp ]
+
+    a(1,:)  = [ 0.25_wp, 0.25_wp - sqrt(3._wp)/6._wp ]
+    a(2,:)  = [ 0.25_wp + sqrt(3._wp)/6._wp, 0.25_wp]
+
+    b       = [ 0.25_wp, 0.25_wp ]
+    bstar   = [ 0.25_wp + 0.25_wp*sqrt(3._wp), 0.25_wp - 0.25_wp*sqrt(3._wp) ]
+
+    return
+  end subroutine gauss_legendre4
+
+  subroutine gauss_legendre6(a, b, bstar, c, m, p)
+    integer,  intent(out)                               :: m, p
+    real(wp), intent(out), dimension(:),    allocatable :: c, b, bstar
+    real(wp), intent(out), dimension(:,:),  allocatable :: a
+
+    p = 6
+    m = 3
+    allocate(a(m,m), b(m), bstar(m), c(m))
+
+    c       = [ 0.25_wp - 0.1_wp*sqrt(15._wp), 0.5_wp, 0.25_wp + 0.1_wp*sqrt(15._wp) ]
+
+    a(1,:)  = [ 5._wp/36._wp, 2._wp/9._wp - 1._wp/15._wp * sqrt(15._wp), 5._wp/36._wp - 1._wp/30._wp*sqrt(15._wp) ]
+    a(2,:)  = [ 5._wp/36._wp + 1._wp/24._wp * sqrt(15._wp), 2._wp/9._wp, 5._wp/36._wp - 1._wp/24._wp * sqrt(15._wp) ]
+    a(3,:)  = [ 5._wp/36._wp + 1._wp/30._wp * sqrt(15._wp), 2._wp/9._wp + 1._wp/15._wp * sqrt(15._wp), 5._wp/36._wp ]
+
+    b       = [ 5._wp/18._wp, 4._wp/9._wp, 5._wp/18._wp ]
+    bstar   = [ -5._wp/6._wp, 8._wp/3._wp, -5._wp/6._wp ]
+
+    return
+  end subroutine gauss_legendre6
 
 end module rk_constants
