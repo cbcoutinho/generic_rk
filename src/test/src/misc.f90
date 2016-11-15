@@ -14,10 +14,11 @@ contains
 
     ! call simple_trig(n, t, y, dy)
     ! call simple_ode(n, t, y, dy)
-    call vanderpol(n, t, y, dy)
+    ! call vanderpol(n, t, y, dy)
     ! call lorenz(n, t, y, dy)
     ! call brusselator(n, t, y, dy)
-
+    ! call stiff(n, t, y, dy)
+    call robertson(n, t, y, dy)
 
     return
   end subroutine mysub
@@ -90,5 +91,37 @@ contains
 
     return
   end subroutine brusselator
+
+  subroutine stiff(n, t, y, dy)
+    integer, intent(in)                 :: n
+    real(wp), intent(in)                :: t
+    real(wp), intent(in), dimension(n)  :: y
+    real(wp), intent(out), dimension(n) :: dy
+
+    dy(1) = -50._wp * ( y(1) - dcos(t) )
+
+    return
+  end subroutine stiff
+
+  subroutine robertson(n, t, y, dy)
+    integer, intent(in)                 :: n
+    real(wp), intent(in)                :: t
+    real(wp), intent(in), dimension(n)  :: y
+    real(wp), intent(out), dimension(n) :: dy
+
+    real(wp), dimension(n) :: k
+
+    k = [ 4d-2, 3d7, 1d4 ]
+
+    dy(1) = - k(1) * y(1) + k(3) * y(2) * y(3)
+    dy(2) =   k(1) * y(1) - k(3) * y(2) * y(3) - k(2) * y(2) * y(2)
+    dy(3) =                                      k(2) * y(2) * y(2)
+
+    ! print*, y
+    ! print*, dy
+    ! stop
+
+    return
+  end subroutine robertson
 
 end module misc

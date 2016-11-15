@@ -77,7 +77,7 @@ contains
     ! EDIT 10-11-2016: change dt to be the minimum value between t(2)-t(1) and
     ! 1d-2 because sometimes you only want a very sparse output of data, and
     ! that could overshoot a good initial guess. This should be smarter
-    dt = minval([t(2) - t(1), 1d-1])
+    dt = minval([t(2) - t(1), 1d-2])
 
     do ii = 1, num_t-1
       yy = y(ii,:)
@@ -112,8 +112,12 @@ contains
 
     ! Local arguments
     real(wp)                              :: t, error
-    real(wp), parameter                   :: eps_abs = 1d-3 ! sqrt(epsilon(1._wp))
-    real(wp), parameter                   :: eps_rel = 1d-3
+    ! real(wp), parameter                   :: eps_abs = epsilon(1e0)
+    ! real(wp), parameter                   :: eps_abs = 1d-7
+    real(wp), parameter                   :: eps_abs = sqrt(epsilon(1._wp))
+    ! real(wp), parameter                   :: eps_rel = epsilon(1e0)
+    ! real(wp), parameter                   :: eps_rel = 1d-7
+    real(wp), parameter                   :: eps_rel = sqrt(epsilon(1._wp))
     real(wp), dimension(n)                :: dummy_y, y_star
 
     integer                               :: eval, num_dt

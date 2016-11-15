@@ -3,7 +3,7 @@ module nonlinalg
   use linalg, only: linsolve_quick
   implicit none
 
-  real(wp), parameter :: pi = 4._wp * datan(1._wp)
+  ! real(wp), parameter :: pi = 4._wp * datan(1._wp)
 
   interface
     function fun_interf(n, x) result(y)
@@ -52,7 +52,7 @@ contains
     procedure(fun_interf)                 :: fun
 
     integer                   :: jj
-    real(wp), dimension(n)    :: xx
+    real(wp), dimension(n)    :: xx, fun_plus, fun_minus
     real(wp), parameter       :: eps = epsilon(1e0)
 
     ! print*,
@@ -66,15 +66,18 @@ contains
     ! end do
     ! stop
 
-    !$omp parallel do private (jj, xx) shared(dydx, x, n)
+    !$omp parallel do &
+    !$omp& private (jj, xx, fun_plus, fun_minus) shared(dydx, x, n)
     do jj = 1,n
       xx = x
       xx(jj) = xx(jj) + eps
-      dydx(:,jj) = fun(n, xx)
+      fun_plus = fun(n, xx)
 
       xx = x
       xx(jj) = xx(jj) - eps
-      dydx(:,jj) = ( dydx(:,jj) - fun(n, xx) ) / (2._wp * eps)
+      fun_minus = fun(n, xx)
+
+      dydx(:,jj) = (fun_plus - fun_minus ) / (2._wp * eps)
     end do
     !$omp end parallel do
 

@@ -12,13 +12,14 @@ fig = plt.figure()
 
 df = pd.read_csv(data_file,
                  delim_whitespace=True,
-                 names=['t', 'y1', 'y2'])
+                 names=['t', 'y1', 'y2', 'y3'])
+                #  names=['t', 'y1', 'y2'])
                 #  names=['t', 'x', 'y', 'z'])
                 #  names=['t', 'x1', 'x2', 'x3'])
 
 df_raw = pd.read_csv(raw_file,
                      delim_whitespace=True,
-                     names=['t', 'dt', 'y1', 'y2'])
+                     names=['t', 'dt', 'y1', 'y2', 'y3'])
 
 df.sort_values(by='t', inplace=True)
 df_raw.sort_values(by='t', inplace=True)
@@ -26,11 +27,12 @@ df_raw.sort_values(by='t', inplace=True)
 t   = df_raw.t.values
 y1  = df_raw.y1.values
 y2  = df_raw.y2.values
-# y3  = df.y3.values
+y3  = df_raw.y3.values
 
 ax1 = fig.add_subplot(211)
 ax1.plot(t, y1, marker='o', linestyle='-', label='y1')
 ax1.plot(t, y2, marker='o', linestyle='-', label='y2')
+ax1.plot(t, y3, marker='o', linestyle='-', label='y3')
 # ax1.plot(t, x3, marker='o', linestyle='None', label='x3')
 
 ax1.set_xlabel('t')
