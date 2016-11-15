@@ -16,7 +16,7 @@ program main
   ! Set time vector `t`
   t0   = 0.0_wp
   ! tend    = 4_wp*pi
-  tend = 50._wp
+  tend = 100._wp
   call linspace(t0, tend, t)
 
   ! Set y vector `y` using y0

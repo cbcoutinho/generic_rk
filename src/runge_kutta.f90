@@ -56,13 +56,13 @@ contains
     ! call fehlbery_rk12(a, b, bstar, c, m, p)
     ! call bogacki_shampine(a, b, bstar, c, m, p)
     ! call fehlbery_rk45(a, b, bstar, c, m, p)
-    ! call dormand_prince_rk45(a, b, bstar, c, m, p)
+    call dormand_prince_rk45(a, b, bstar, c, m, p)
     ! call fehlbery_rk78(a, b, bstar, c, m, p)
 
-    ! call heun(a, b, c, m, p)
-    ! call three_eighths_rk4(a, b, c, m, p)
+    ! call heun(a, b, c, m)
+    ! call three_eighths_rk4(a, b, c, m)
 
-    call trapezoidal(a, b, bstar, c, m, p)
+    ! call trapezoidal(a, b, bstar, c, m, p)
     ! call gauss_legendre4(a, b, bstar, c, m, p)
     ! call gauss_legendre6(a, b, bstar, c, m, p)
 

@@ -10,11 +10,11 @@ TEST	= $(SRC)/test
 FF = gfortran
 FFLAGS = -Wall -std=f2008 -Wextra -fPIC -fmax-errors=1 -Wimplicit-interface
 # Debug flags:
-FFLAGS += -g -fcheck=all -fbacktrace #-ffpe-trap=zero,overflow,underflow
+# FFLAGS += -g -fcheck=all -fbacktrace #-ffpe-trap=zero,overflow,underflow
 # Release flags:
-# FFLAGS += -O3 -march=native -ffast-math -funroll-loops
+FFLAGS += -O3 -march=native -ffast-math -funroll-loops
 
-export OMP_NUM_THREADS=4
+# export OMP_NUM_THREADS=4
 FLIBS = -lblas -llapack -fopenmp
 
 # Modules

@@ -24,10 +24,10 @@ df_raw = pd.read_csv(raw_file,
 df.sort_values(by='t', inplace=True)
 df_raw.sort_values(by='t', inplace=True)
 
-t   = df_raw.t.values
-y1  = df_raw.y1.values
-y2  = df_raw.y2.values
-y3  = df_raw.y3.values
+t   = df.t.values
+y1  = df.y1.values
+y2  = df.y2.values
+y3  = df.y3.values
 
 ax1 = fig.add_subplot(211)
 ax1.plot(t, y1, marker='o', linestyle='-', label='y1')
