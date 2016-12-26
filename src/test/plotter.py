@@ -30,10 +30,20 @@ y2  = df.y2.values
 y3  = df.y3.values
 
 ax1 = fig.add_subplot(211)
-ax1.plot(t, y1, marker='o', linestyle='-', label='y1')
-ax1.plot(t, y2, marker='o', linestyle='-', label='y2')
-ax1.plot(t, y3, marker='o', linestyle='-', label='y3')
-# ax1.plot(t, x3, marker='o', linestyle='None', label='x3')
+ax1.plot(t, y1, marker='o', linestyle='None', label='y1', color='b')
+ax1.plot(t, y2, marker='o', linestyle='None', label='y2', color='g')
+ax1.plot(t, y3, marker='o', linestyle='None', label='y3', color='r')
+
+t   = df_raw.t.values
+y1  = df_raw.y1.values
+y2  = df_raw.y2.values
+y3  = df_raw.y3.values
+
+ax1.plot(t, y1, marker='None', linestyle='-', color='b')
+ax1.plot(t, y2, marker='None', linestyle='-', color='g')
+ax1.plot(t, y3, marker='None', linestyle='-', color='r')
+
+
 
 ax1.set_xlabel('t')
 ax1.set_ylabel('y')

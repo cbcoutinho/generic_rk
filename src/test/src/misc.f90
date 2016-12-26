@@ -43,6 +43,7 @@ contains
 
     dy(1) = y(2)
     dy(2) = -y(1)
+    dy(3) = -y(2)
 
     return
   end subroutine simple_ode

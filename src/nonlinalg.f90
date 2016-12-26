@@ -21,17 +21,20 @@ contains
     real(wp), intent(in), dimension(n)    :: x0
     procedure(fun_interf)                 :: myfun
 
-    integer                   :: ii
+    integer                   :: ii, maxit = 100
     real(wp), dimension(n)    :: x, z, b
     real(wp), dimension(n,n)  :: jac
     real(wp), parameter       :: eps = epsilon(1e0)
 
     x = x0
+    ii = 1
 
-    do ii = 1, 100
+    do
 
       b = myfun(n,x)
-      if ( ii == 1 .or. modulo(ii, 1) == 0 ) jac = jacobian(myfun, n, x)
+      if ( ii == 1 .or. modulo(ii, 1) == 0 ) then
+        jac = jacobian(myfun, n, x)
+      end if
 
       call linsolve_quick(n, jac, 1, -b, z)
 
@@ -41,6 +44,14 @@ contains
 
       ! if ( norm2(myfun(n, x)) < eps ) exit
       if ( norm2(z) < eps ) exit
+
+      if ( ii == maxIt ) then
+        print*, " *** Error: Maximum Number of Iterations Reached *** "
+        print*, " *** Number of Iterations in multivariate Newton's Method reached *** "
+        stop
+      end if
+
+      ii = ii + 1
     end do
 
   end function nonlinsolve

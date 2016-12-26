@@ -6,7 +6,7 @@ program main
   implicit none
 
   integer                       :: ii, ios
-  integer, parameter            :: n = 3, num_t = 2
+  integer, parameter            :: n = 3, num_t = 10
   real(wp)                      :: t0, tend
   real(wp), dimension(num_t)    :: t
   real(wp), dimension(n)        :: y0
@@ -15,8 +15,8 @@ program main
 
   ! Set time vector `t`
   t0   = 0.0_wp
-  ! tend    = 4_wp*pi
   tend = 100._wp
+  ! tend = 4_wp*pi
   call linspace(t0, tend, t)
 
   ! Set y vector `y` using y0
@@ -24,6 +24,7 @@ program main
   ! y0 = [2._wp, 0._wp]
   ! y0 = [ 0._wp ]
   ! y0 = [0.1_wp, 10.0_wp, 10.0_wp]
+  ! y0      = [1._wp, 0._wp, -1._wp]
   y0      = [1._wp, 0._wp, 0._wp]
   y(1,:)  = y0
 
