@@ -46,4 +46,4 @@ debug: $(BIN)/main
 	/usr/bin/valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all $(BIN)/main
 
 plot: test
-	python plotter.py
+	./plotter.py
